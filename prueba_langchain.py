@@ -10,25 +10,30 @@ from langchain_openai import ChatOpenAI
 # =========================
 # CONFIG
 # =========================
-YOUTUBE_URL = "https://www.youtube.com/watch?v=j11qeggxROY"  # <-- cambia esto
+YOUTUBE_URL = "https://www.youtube.com/watch?v=1UCWVl_iJ-o"  # <-- cambia esto
 LANG = "es"  # "es" o "en"
 # DeepSeek API (https://platform.deepseek.com) — define DEEPSEEK_API_KEY en el entorno
 MODEL = "deepseek-chat"
 DEEPSEEK_API_BASE = "https://api.deepseek.com"
 
+# Ajuste de tiempo: segundos a SUMAR a los subtítulos para que coincidan con el video de YouTube.
+# En este video los subtítulos VTT de YouTube YA coinciden con el video (ej. "Hola" está a 2:17 en ambos).
+# Por tanto OFFSET debe ser 0. Si en otro video hubiera intro, sería segundos a sumar/restar.
+OFFSET_SEC = 0
 VTT_FILE = Path(f"transcripcion.{LANG}.vtt")
 TXT_FILE = Path("transcripcion.txt")
 CLIPS_JSON = Path("clips.json")
+CLIPS_PERFORMANCE_JSON = Path("clips_performance.json")
 
 # Clips por trozos (más trozos = más minutos de video; más clips = más candidatos)
-CHUNK_DURATION_SEC = 600  # 10 min por trozo
-MAX_CLIPS_PER_CHUNK = 4  # clips por trozo
-MAX_FINAL_CLIPS = 12  # máximo de clips finales (TikTok)
-MAX_CHUNKS_TO_PROCESS = 8  # trozos a procesar (ej. 8 × 10 min = hasta ~80 min)
-MAX_CHARS_PER_CHUNK = 12_000  # límite de caracteres por trozo
-SKIP_FIRST_SECONDS = 120  # saltar intro (ej. 2 min) para evitar música/inglés
-MIN_CLIP_DURATION_SEC = 30
-MAX_CLIP_DURATION_SEC = 45
+# Clips por trozos (más trozos = más minutos de video; más clips = más candidatos)
+CHUNK_DURATION_SEC = 300  # Reducido a 5 min para máxima exhaustividad
+MAX_CLIPS_PER_CHUNK = 15
+MAX_FINAL_CLIPS = 100  # Aumentado para no perder nada
+MAX_CHARS_PER_CHUNK = 10_000
+SKIP_FIRST_SECONDS = 0  # Procesar desde el inicio con el ajuste de tiempo negativo
+MIN_CLIP_DURATION_SEC = 20  # Bajado a 20s para no omitir nada que sea valioso
+MAX_CLIP_DURATION_SEC = 180  # Mantenido en 3 min para historias largas
 
 
 # =========================
@@ -47,13 +52,17 @@ def ts_to_seconds(ts: str) -> int:
     return int(parts[0]) if parts else 0
 
 
+def get_video_id(url: str) -> str:
+    """Extrae el ID de video de una URL de YouTube."""
+    match = re.search(r"(?:v=|\/)([0-9A-Za-z_-]{11}).*", url)
+    return match.group(1) if match else "unknown_video"
+
+
 def split_transcript_into_chunks(transcripcion: str) -> list[str]:
     """
-    Divide la transcripción en trozos por tiempo (ej. cada 10 min).
-    Cada trozo se limita a MAX_CHARS_PER_CHUNK caracteres (sugerencia 1).
+    Divide la transcripción en trozos por tiempo (ej. cada 15 min).
     """
     lines = transcripcion.strip().split("\n")
-    # Agrupar por ventana de tiempo: [00:00:00 --> 00:00:05] texto
     chunk_buckets: dict[int, list[str]] = {}
     for line in lines:
         line = line.strip()
@@ -64,20 +73,18 @@ def split_transcript_into_chunks(transcripcion: str) -> list[str]:
             start_ts = match.group(1)
             sec = ts_to_seconds(start_ts)
             if sec < SKIP_FIRST_SECONDS:
-                continue  # saltar intro (música/inglés)
+                continue
             bucket = sec // CHUNK_DURATION_SEC
             chunk_buckets.setdefault(bucket, []).append(line)
         else:
-            # Línea sin timestamp: añadir al último bucket
             if chunk_buckets:
                 last_bucket = max(chunk_buckets)
                 chunk_buckets[last_bucket].append(line)
-    # Ordenar buckets por tiempo y unir líneas; truncar por caracteres
+
     result = []
     for key in sorted(chunk_buckets):
         chunk_text = "\n".join(chunk_buckets[key])
         if len(chunk_text) > MAX_CHARS_PER_CHUNK:
-            # Cortar en límite de caracteres, al final de una línea
             acc = []
             n = 0
             for ln in chunk_buckets[key]:
@@ -91,9 +98,6 @@ def split_transcript_into_chunks(transcripcion: str) -> list[str]:
     return result
 
 
-# =========================
-# HELPERS (resto)
-# =========================
 def run_cmd(cmd: list[str]) -> None:
     """Ejecuta un comando y si falla muestra error útil."""
     p = subprocess.run(cmd, text=True, capture_output=True)
@@ -105,11 +109,7 @@ def run_cmd(cmd: list[str]) -> None:
 
 
 def download_subtitles_vtt(url: str, lang: str) -> None:
-    """
-    Descarga SOLO subtítulos automáticos en .vtt.
-    No descarga video.
-    """
-    # Output: transcripcion.<lang>.vtt
+    """Descarga SOLO subtítulos automáticos en .vtt."""
     out_tpl = "transcripcion.%(ext)s"
     cmd = [
         "yt-dlp",
@@ -122,81 +122,78 @@ def download_subtitles_vtt(url: str, lang: str) -> None:
         url,
     ]
     run_cmd(cmd)
-
-    # yt-dlp suele guardar como transcripcion.<lang>.vtt (ej: transcripcion.es.vtt)
     if not VTT_FILE.exists():
-        # fallback: busca cualquier transcripcion.*.vtt por si el idioma salió distinto
         candidates = list(Path(".").glob("transcripcion.*.vtt"))
         if candidates:
             candidates[0].rename(VTT_FILE)
         else:
             raise SystemExit(f"No encontré archivo .vtt. Esperaba: {VTT_FILE}")
 
+
 def vtt_to_txt(vtt_path: Path, out_path: Path) -> None:
     lines = vtt_path.read_text(encoding="utf-8", errors="ignore").splitlines()
 
     def clean_text(t: str) -> str:
+        # Eliminar tags <c>, <00:00:00.000>, etc.
         t = re.sub(r"<.*?>", "", t)
-        t = re.sub(r"\s+", " ", t)
-        return t.strip()
-
-    def ts_to_seconds(ts: str) -> int:
-        # "HH:MM:SS" o "MM:SS" (YouTube casi siempre HH:MM:SS)
-        parts = ts.split(":")
-        parts = [int(p) for p in parts]
-        if len(parts) == 3:
-            h, m, s = parts
-            return h * 3600 + m * 60 + s
-        if len(parts) == 2:
-            m, s = parts
-            return m * 60 + s
-        return int(parts[0])
+        # Quitar espacios extra
+        words = t.split()
+        if not words:
+            return ""
+        # Deduplicar palabras seguidas (ej: "hola hola")
+        clean_words = [words[0]]
+        for w in words[1:]:
+            if w.lower() != clean_words[-1].lower():
+                clean_words.append(w)
+        return " ".join(clean_words)
 
     def seconds_to_hhmmss(x: int) -> str:
         if x < 0:
-            x = 0
-        h = x // 3600
-        x %= 3600
-        m = x // 60
-        s = x % 60
+            x = 0  # evita tiempos negativos en el TXT
+        h, m = divmod(x, 3600)
+        m, s = divmod(m, 60)
         return f"{h:02d}:{m:02d}:{s:02d}"
 
-    # 1) Detectar offset base = primer start timestamp encontrado
-    base_offset = None
-    for line in lines:
-        line = line.strip()
-        if "-->" in line:
-            start_raw = line.split("-->")[0].strip().split(".")[0]
-            base_offset = ts_to_seconds(start_raw)
-            break
-    if base_offset is None:
-        raise ValueError("No se encontraron timestamps en el VTT")
-
     out_lines = []
+    last_text = ""
     i = 0
     while i < len(lines):
         line = lines[i].strip()
+        if " --> " in line:
+            # Extraer tiempos
+            parts = line.split(" --> ")
+            start_raw = parts[0].split(".")[0]
+            end_raw = parts[1].split(" ")[0].split(".")[0]
 
-        if "-->" in line:
-            start_raw, end_raw = [x.strip() for x in line.split("-->")]
-            start = start_raw.split(".")[0]
-            end = end_raw.split(".")[0]
+            start_s = ts_to_seconds(start_raw) + OFFSET_SEC
+            end_s = ts_to_seconds(end_raw) + OFFSET_SEC
 
-            start_s = ts_to_seconds(start) - base_offset
-            end_s = ts_to_seconds(end) - base_offset
-
+            # Buscar el texto en las líneas siguientes
+            text_parts = []
             j = i + 1
-            chunk = []
-            while j < len(lines) and lines[j].strip():
-                if "-->" not in lines[j]:
-                    chunk.append(lines[j].strip())
+            while j < len(lines) and " --> " not in lines[j]:
+                t = lines[j].strip()
+                if t:
+                    text_parts.append(t)
                 j += 1
 
-            text = clean_text(" ".join(chunk))
-            if text:
-                out_lines.append(
-                    f"[{seconds_to_hhmmss(start_s)} --> {seconds_to_hhmmss(end_s)}] {text}"
-                )
+            full_text = clean_text(" ".join(text_parts))
+
+            if full_text:
+                # Lógica para evitar la repetición de "rolling captions" de YouTube
+                # Si el texto actual empieza con el texto anterior, solo nos quedamos con la parte nueva
+                if last_text and full_text.lower().startswith(last_text.lower()):
+                    new_part = full_text[len(last_text) :].strip()
+                    if new_part:
+                        out_lines.append(
+                            f"[{seconds_to_hhmmss(start_s)} --> {seconds_to_hhmmss(end_s)}] {new_part}"
+                        )
+                        last_text = full_text  # Actualizamos con el total para la siguiente comparación
+                elif full_text.lower() != last_text.lower():
+                    out_lines.append(
+                        f"[{seconds_to_hhmmss(start_s)} --> {seconds_to_hhmmss(end_s)}] {full_text}"
+                    )
+                    last_text = full_text
 
             i = j
         else:
@@ -204,73 +201,67 @@ def vtt_to_txt(vtt_path: Path, out_path: Path) -> None:
 
     out_path.write_text("\n".join(out_lines), encoding="utf-8")
 
+
 def extract_json(text: str) -> str | None:
-    """Extrae una lista JSON del texto (por si el modelo mete texto extra)."""
+    """Extrae una lista JSON del texto."""
     if not text:
         return None
-    t = text.strip().replace("```json", "").replace("```", "").strip()
-    m = re.search(r"\[\s*{.*}\s*\]", t, flags=re.DOTALL)
-    return m.group(0) if m else None
+    t = re.sub(r"```json\s*", "", text)
+    t = re.sub(r"```\s*", "", t).strip()
+    start = t.find("[")
+    end = t.rfind("]")
+    if start != -1 and end != -1 and end > start:
+        return t[start : end + 1]
+    return None
 
 
-def generate_clips(transcripcion: str, max_clips: int = 7) -> list[dict]:
+def generate_clips(transcripcion: str, max_clips: int = 20) -> list[dict]:
     api_key = os.environ.get("DEEPSEEK_API_KEY")
     if not api_key:
-        raise SystemExit(
-            "Falta DEEPSEEK_API_KEY. Crea una API key en https://platform.deepseek.com y define la variable:\n"
-            "  Windows (PowerShell): $env:DEEPSEEK_API_KEY = 'sk-...'\n"
-            "  Linux/macOS: export DEEPSEEK_API_KEY='sk-...'"
-        )
+        raise SystemExit("Falta DEEPSEEK_API_KEY.")
+
     llm = ChatOpenAI(
         model=MODEL,
         openai_api_key=api_key,
         openai_api_base=DEEPSEEK_API_BASE,
-        temperature=0.2,
+        temperature=0.7,  # Aumentado para mayor detección de "pepitas"
         max_tokens=4096,
     )
 
-    # Prompt: clips que peguen en TikTok — controversiales, virales, hooks fuertes
-    min_c = 1 if max_clips <= 3 else 3
     prompt = dedent(f"""
     DEVUELVE SOLO JSON. NO EXPLIQUES NADA. NO ESCRIBAS TEXTO.
 
-    Eres editor experto para TikTok (canal principal). Tu objetivo es elegir cortes que PEGUEN: virales, que generen comentarios y shares. Prioriza:
-    - Momentos CONTROVERSIALES o que generen debate (opiniones fuertes, preguntas incómodas, afirmaciones que "rompan").
-    - Hooks que enganchen en los primeros 3 segundos: preguntas, polémica suave, "esto no te lo esperabas", frases punchy y cortas.
-    - Ideas que se entiendan sin contexto y que inviten a comentar o compartir. Nada genérico ni relleno.
+    Eres un editor experto en contenido de alto valor para programadores.
+    Tu misión es extraer clips que sean "pepitas de oro" (conocimiento útil, roadmaps, consejos de carrera).
 
-    REGLAS OBLIGATORIAS:
-    - Cada clip DEBE durar entre 30 y 45 segundos. (end - start = entre 30 y 45 segundos).
-    - Devuelve EXACTAMENTE entre {min_c} y {max_clips} clips. No más de {max_clips}.
-    - title, hook y descripcion deben basarse SOLO en lo que REALMENTE se dice en la transcripción. NO inventes. Resume o parafrasea lo que dice el ponente; el hook debe ser una frase que enganche para TikTok.
-    - Cada clip debe tener hook y title DIFERENTES. No repitas la misma frase.
-    - Los timestamps están en el texto como [00:MM:SS --> 00:MM:SS]. Usa esos mismos timestamps para start y end.
+    CRÍTICO: REVISIÓN DE TRANSCRIPCIÓN Y COHERENCIA
+    1. REVISA LA TRANSCRIPCIÓN: Antes de definir los tiempos (start/end), lee la transcripción adjunta. Asegúrate de que el clip NO empiece a mitad de una frase o palabra.
+    2. AJUSTE DE TIEMPOS: Si Eric empieza a hablar de una idea en "00:13:52", no pongas "00:13:56". Sé preciso. El clip debe incluir el sujeto y el contexto para que se entienda quién habla y de qué.
+    3. COHERENCIA TOTAL: El Título, el Hook y la Transcripción deben estar perfectamente alineados. Si el título dice "Cómo entrar a Amazon", la transcripción del clip debe hablar EXACTAMENTE de eso, sin dejar ideas incompletas al final.
+    4. SIN HUECOS: Asegúrate de que el clip tenga un inicio limpio y un cierre con sentido completo.
 
-    Salida: UNA LISTA JSON (array) con entre {min_c} y {max_clips} objetos.
-    Campos obligatorios:
-    - start: "00:MM:SS" (o "H:MM:SS" si pasa de 1 hora)
-    - end: "00:MM:SS"
-    - title: 6–10 palabras (resumen punchy, tipo TikTok)
-    - hook: 1 frase fuerte (<= 12 palabras) que enganche en los primeros segundos, basada en lo dicho
-    - descripcion: 1 o 2 frases con QUÉ SE DICE exactamente en ese tramo
-    - why: por qué ese momento puede pegar en TikTok (<= 14 palabras)
-    - confidence: 0 a 1
+    QUÉ BUSCAMOS:
+    - Clips de ALTO VALOR.
+    - DURACIÓN: Preferiblemente de 40 segundos en adelante para asegurar que la idea sea clara.
+    - EXCEPCIÓN: Si encuentras una "pepita de oro" muy potente de menos de 40 segundos (incluso de 20-30s), NO LA OMITAS, inclúyela también.
+    - Consejos técnicos, roadmaps, estadísticas, realidades de Big Tech, metodologías de estudio.
+    - Evita datos biográficos irrelevantes ("estudié en X") a menos que aporten una lección.
+    - IMPORTANTE: No cortes la idea antes de tiempo. Asegúrate de que el clip tenga un inicio y un fin con sentido completo. Es mejor un clip un poco más largo que uno corto que no se entiende.
 
-    EJEMPLO DE SALIDA (solo ejemplo, no lo repitas literal):
+    FORMATO JSON:
     [
       {{
-        "start": "00:05:30",
-        "end": "00:06:05",
-        "title": "La verdad incómoda sobre la nube que nadie dice",
-        "hook": "Si no mides, pagas de más.",
-        "descripcion": "El ponente explica que si no mides el uso de recursos en la nube, acabas pagando de más.",
-        "why": "Hook contraintuitivo, genera debate",
-        "confidence": 0.84
+        "start": "HH:MM:SS",
+        "end": "HH:MM:SS",
+        "title": "Título coherente con el contenido",
+        "hook": "Frase inicial potente que aparece en el clip",
+        "descripcion": "Explicación clara del valor del clip",
+        "why": "Por qué es útil para un programador",
+        "confidence": 0.95
       }}
     ]
 
-    Ahora genera la salida JSON real para esta transcripción:
-
+    Transcripción:
     {transcripcion}
     """).strip()
 
@@ -278,43 +269,19 @@ def generate_clips(transcripcion: str, max_clips: int = 7) -> list[dict]:
     raw = response.content if hasattr(response, "content") else str(response)
     json_block = extract_json(raw)
 
-    # Debug: ver 300 chars por si vuelve a fallar
-    if not json_block:
-        print("\nDEBUG (primer output, 300 chars):\n", raw[:300], "\n")
+    if not json_block or json_block == "[]":
+        print(f"      (No se encontraron clips en este trozo)")
+        return []
 
-        # Segundo intento: convertir el texto a JSON sí o sí
-        repair = dedent(f"""
-        CONVIERTE A JSON. DEVUELVE SOLO JSON. SIN TEXTO EXTRA.
-
-        Tienes este texto (posible respuesta previa del modelo):
-        {raw}
-
-        Devuélvelo en formato JSON LISTA con objetos:
-        start, end, title, hook, descripcion, why, confidence
-
-        Reglas:
-        - Entre {min_c} y {max_clips} clips. Duración de cada clip: 30 a 45 segundos.
-        - start/end deben ser timestamps presentes en la transcripción original (formato 00:MM:SS).
-        - confidence 0..1
-        """).strip()
-
-        response2 = llm.invoke(repair)
-        raw2 = response2.content if hasattr(response2, "content") else str(response2)
-        json_block = extract_json(raw2)
-
-    if not json_block:
-        print("ERROR: el modelo no devolvió JSON. Output crudo:\n")
-        print(raw)
-        raise SystemExit(1)
-
-    return json.loads(json_block)
+    try:
+        data = json.loads(json_block)
+        print(f"      (Se encontraron {len(data)} clips potenciales)")
+        return data
+    except:
+        return []
 
 
 def validate_and_fix_clips(clips: list[dict]) -> list[dict]:
-    """
-    Valida y corrige la salida del modelo:
-    - start < end; duración entre 30 y 45 s (descartar si no); máximo MAX_FINAL_CLIPS; quitar hooks repetidos.
-    """
     valid = []
     for c in clips:
         start_s = c.get("start", "")
@@ -322,7 +289,7 @@ def validate_and_fix_clips(clips: list[dict]) -> list[dict]:
         try:
             start_sec = ts_to_seconds(start_s)
             end_sec = ts_to_seconds(end_s)
-        except (ValueError, TypeError):
+        except:
             continue
         if start_sec >= end_sec:
             continue
@@ -330,104 +297,146 @@ def validate_and_fix_clips(clips: list[dict]) -> list[dict]:
         if duration < MIN_CLIP_DURATION_SEC or duration > MAX_CLIP_DURATION_SEC:
             continue
         valid.append(c)
-    # Quitar hooks repetidos: normalizar (minúsculas, espacios colapsados), quedarse con mayor confidence
+
     seen_hooks: dict[str, dict] = {}
     for c in valid:
         hook = (c.get("hook") or "").strip().lower()
         hook = re.sub(r"\s+", " ", hook)
         if not hook:
             continue
-        if hook not in seen_hooks or (c.get("confidence") or 0) > (seen_hooks[hook].get("confidence") or 0):
+        if hook not in seen_hooks or (c.get("confidence") or 0) > (
+            seen_hooks[hook].get("confidence") or 0
+        ):
             seen_hooks[hook] = c
+
     unique = list(seen_hooks.values())
-    # Ordenar por start y quedarse con máximo MAX_FINAL_CLIPS
     unique.sort(key=lambda x: ts_to_seconds(x.get("start", "")))
     return unique[:MAX_FINAL_CLIPS]
 
 
 def add_transcripcion_to_clips(clips: list[dict], transcripcion: str) -> None:
-    """
-    Añade a cada clip el campo 'transcripcion' con el texto completo
-    de la transcripción que cae entre start y end de ese clip.
-    """
-    # Parsear transcripción: cada línea "[HH:MM:SS --> HH:MM:SS] texto"
     lineas: list[tuple[int, int, str]] = []
     for line in transcripcion.strip().split("\n"):
-        line = line.strip()
-        if not line:
-            continue
-        match = re.match(r"\[(\d{1,2}:\d{2}:\d{2})\s*-->\s*(\d{1,2}:\d{2}:\d{2})\]\s*(.*)", line)
+        match = re.match(
+            r"\[(\d{1,2}:\d{2}:\d{2})\s*-->\s*(\d{1,2}:\d{2}:\d{2})\]\s*(.*)", line
+        )
         if match:
-            start_sec = ts_to_seconds(match.group(1))
-            end_sec = ts_to_seconds(match.group(2))
-            text = match.group(3).strip()
-            lineas.append((start_sec, end_sec, text))
+            lineas.append(
+                (
+                    ts_to_seconds(match.group(1)),
+                    ts_to_seconds(match.group(2)),
+                    match.group(3).strip(),
+                )
+            )
 
     for c in clips:
         clip_start = ts_to_seconds(c.get("start", ""))
         clip_end = ts_to_seconds(c.get("end", ""))
         textos = []
         ultimo = None
+
+        # Ajuste dinámico: Si el clip empieza unos segundos después de una línea de transcripción,
+        # pero esa línea es el inicio natural de la frase, la incluimos.
+        buffer_inicio = 5  # segundos
+
         for line_start, line_end, text in lineas:
-            if not (line_start < clip_end and line_end > clip_start and text):
-                continue
-            # Evitar frases repetidas: solo añadir si es distinto al segmento anterior
-            if text != ultimo:
-                textos.append(text)
-                ultimo = text
+            # Incluimos la línea si está dentro del rango o si está muy cerca del inicio (contexto)
+            if (
+                line_start < clip_end and line_end > (clip_start - buffer_inicio)
+            ) and text:
+                if text != ultimo:
+                    textos.append(text)
+                    ultimo = text
+
         c["transcripcion"] = " ".join(textos) if textos else ""
 
+        # Validación extra de coherencia
+        if c["transcripcion"]:
+            # Si el hook no está en la transcripción, el LLM podría estar inventando tiempos
+            hook_lower = (c.get("hook") or "").lower()
+            if hook_lower and hook_lower not in c["transcripcion"].lower():
+                c["confidence"] = (
+                    c.get("confidence") or 0
+                ) * 0.5  # Bajamos confianza si no hay match
 
-# =========================
-# MAIN
-# =========================
+
 def main():
-    print("1) Descargando subtítulos (solo texto, NO video)...")
+    # Eliminar clips.json previo para asegurar que siempre se genere uno nuevo
+    if CLIPS_JSON.exists():
+        CLIPS_JSON.unlink()
+
+    print("1) Descargando subtítulos...")
+    # Eliminar VTT previo para asegurar que siempre se descargue el del video actual
+    if VTT_FILE.exists():
+        VTT_FILE.unlink()
     download_subtitles_vtt(YOUTUBE_URL, LANG)
-    print(f"   OK -> {VTT_FILE}")
 
-    print("2) Convirtiendo VTT a transcripción con timestamps...")
+    print("2) Convirtiendo VTT a transcripción...")
+    # Forzamos la regeneración del TXT para aplicar el nuevo OFFSET_SEC
+    if TXT_FILE.exists():
+        TXT_FILE.unlink()
     vtt_to_txt(VTT_FILE, TXT_FILE)
-    print(f"   OK -> {TXT_FILE}")
 
-    print("3) Generando clips con DeepSeek (por trozos)...")
+    print("3) Generando clips con DeepSeek...")
     transcripcion = TXT_FILE.read_text(encoding="utf-8", errors="ignore")
+    if not transcripcion.strip():
+        print("ERROR: La transcripción está vacía. Revisa el archivo VTT.")
+        return
+
     chunks = split_transcript_into_chunks(transcripcion)
+
+    print(f"   Video dividido en {len(chunks)} trozos de 15 min.")
+
     all_clips: list[dict] = []
-    chunks_to_process = chunks[:MAX_CHUNKS_TO_PROCESS]
-    if len(chunks_to_process) == 1:
-        print(f"   Un solo trozo (intro saltada), generando hasta {MAX_FINAL_CLIPS} clips...")
-        all_clips = generate_clips(chunks_to_process[0], max_clips=MAX_FINAL_CLIPS)
-    else:
-        for i, chunk in enumerate(chunks_to_process):
-            if not chunk.strip():
-                continue
-            print(f"   Trozo {i + 1}/{len(chunks_to_process)} (de {len(chunks)} total) ({len(chunk)} chars)...")
-            chunk_clips = generate_clips(chunk, max_clips=MAX_CLIPS_PER_CHUNK)
-            all_clips.extend(chunk_clips)
-        all_clips.sort(key=lambda c: ts_to_seconds(c.get("start", "")))
+    for i, chunk in enumerate(chunks):
+        if not chunk.strip():
+            continue
+        print(f"   Procesando trozo {i + 1}/{len(chunks)}...")
+        chunk_clips = generate_clips(chunk, max_clips=MAX_CLIPS_PER_CHUNK)
+        all_clips.extend(chunk_clips)
+
+    all_clips.sort(key=lambda c: ts_to_seconds(c.get("start", "")))
     clips = validate_and_fix_clips(all_clips)
     add_transcripcion_to_clips(clips, transcripcion)
 
-    CLIPS_JSON.write_text(json.dumps(clips, indent=2, ensure_ascii=False), encoding="utf-8")
-    print(f"   OK -> {CLIPS_JSON}\n")
+    CLIPS_JSON.write_text(
+        json.dumps(clips, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
-    print("Clips sugeridos:\n")
-    print(json.dumps(clips, indent=2, ensure_ascii=False))
+    # Guardar en historial
+    video_id = get_video_id(YOUTUBE_URL)
+    perf_list = []
+    if CLIPS_PERFORMANCE_JSON.exists():
+        try:
+            perf_list = json.loads(CLIPS_PERFORMANCE_JSON.read_text(encoding="utf-8"))
+        except:
+            perf_list = []
+
+    existing_video_ids = {c.get("video") for c in perf_list}
+    if video_id not in existing_video_ids:
+        for c in clips:
+            perf_list.append(
+                {
+                    "video": video_id,
+                    "start": c.get("start"),
+                    "title": c.get("title"),
+                    "hook": c.get("hook"),
+                    "status": "published",
+                    "views": 0,
+                    "likes": 0,
+                    "comments": 0,
+                    "retention_full_video": 0,
+                    "saves_shares": 0,
+                    "new_followers": 0,
+                    "notes": "",
+                }
+            )
+        CLIPS_PERFORMANCE_JSON.write_text(
+            json.dumps(perf_list, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+
+    print(f"\nOK. Se han generado {len(clips)} clips en total.")
 
 
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
-
-
-
-
-
-
-
