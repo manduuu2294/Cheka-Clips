@@ -1,3 +1,8 @@
-env/
+*.db
 __pycache__/
-*.pyc
+env/
+.streamlit/secrets.toml
+clips.json
+clips_performance.json
+transcripcion.*.vtt
+transcripcion.txt
