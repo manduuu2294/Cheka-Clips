@@ -1,10 +1,10 @@
 import json
 import re
-import subprocess
-import tempfile
+import time
 from pathlib import Path
 from textwrap import dedent
 
+import yt_dlp
 from langchain_openai import ChatOpenAI
 
 MODEL = "deepseek-chat"
@@ -15,8 +15,8 @@ MAX_CLIPS_PER_CHUNK = 15
 MAX_FINAL_CLIPS = 100
 MAX_CHARS_PER_CHUNK = 10_000
 SKIP_FIRST_SECONDS = 0
-MIN_CLIP_DURATION_SEC = 20
-MAX_CLIP_DURATION_SEC = 180
+MIN_CLIP_DURATION_SEC = 40
+MAX_CLIP_DURATION_SEC = 120
 
 
 def ts_to_seconds(ts: str) -> int:
@@ -38,37 +38,44 @@ def get_video_id(url: str) -> str:
 
 def get_video_title(url: str) -> str:
     try:
-        p = subprocess.run(["yt-dlp", "--print", "title", url], text=True, capture_output=True, timeout=30)
-        return p.stdout.strip() if p.returncode == 0 else ""
+        with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info.get("title", "")
     except Exception:
         return ""
 
 
 def get_video_duration(url: str) -> int:
     try:
-        p = subprocess.run(["yt-dlp", "--print", "duration", url], text=True, capture_output=True, timeout=30)
-        return int(p.stdout.strip()) if p.returncode == 0 and p.stdout.strip().isdigit() else 0
+        with yt_dlp.YoutubeDL({"quiet": True}) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info.get("duration", 0)
     except Exception:
         return 0
 
 
 def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
     out_tpl = str(workdir / "transcripcion.%(ext)s")
-    cmd = [
-        "yt-dlp", "--skip-download", "--write-auto-subs",
-        "--sub-lang", lang, "-o", out_tpl, url,
-    ]
-    p = subprocess.run(cmd, text=True, capture_output=True)
-    if p.returncode != 0:
-        raise RuntimeError(f"yt-dlp error: {p.stderr}")
+    ydl_opts = {
+        "skip_download": True,
+        "writeautomaticsub": True,
+        "subtitleslangs": [lang],
+        "outtmpl": out_tpl,
+        "quiet": True,
+        "no_warnings": True,
+    }
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([url])
+    except yt_dlp.utils.DownloadError:
+        pass
     vtt_path = workdir / f"transcripcion.{lang}.vtt"
-    if not vtt_path.exists():
-        candidates = list(workdir.glob("transcripcion.*.vtt"))
-        if candidates:
-            vtt_path = candidates[0]
-        else:
-            raise FileNotFoundError("No se encontró archivo .vtt")
-    return vtt_path
+    if vtt_path.exists():
+        return vtt_path
+    candidates = list(workdir.glob("transcripcion.*.vtt"))
+    if candidates:
+        return candidates[0]
+    raise RuntimeError(f"No se generaron subtítulos para '{lang}'")
 
 
 def vtt_to_txt(vtt_path: Path, out_path: Path) -> None:
@@ -202,7 +209,7 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
 
     QUÉ BUSCAMOS:
     - Clips de ALTO VALOR.
-    - DURACIÓN: Preferiblemente de 40 segundos en adelante.
+    - DURACIÓN: Mínimo 40 segundos, máximo 2 minutos.
     - Consejos técnicos, roadmaps, estadísticas, realidades de Big Tech, metodologías.
     - No cortes la idea antes de tiempo.
 
@@ -305,7 +312,18 @@ def extract_clips(youtube_url: str, api_key: str, lang: str = "es",
         if progress_callback:
             progress_callback(0, "Descargando subtítulos...")
 
-        vtt_path = download_subtitles_vtt(youtube_url, lang, workdir)
+        langs = [lang, "en"]
+        vtt_path = None
+        last_err = ""
+        for l in langs:
+            try:
+                vtt_path = download_subtitles_vtt(youtube_url, l, workdir)
+                break
+            except RuntimeError as e:
+                last_err = str(e)
+                continue
+        if vtt_path is None:
+            raise RuntimeError(f"No se pudieron descargar subtítulos: {last_err}")
 
         if progress_callback:
             progress_callback(15, "Procesando transcripción...")
