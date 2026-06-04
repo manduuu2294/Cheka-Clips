@@ -153,7 +153,7 @@ if channel_cfg is None:
             * {{ font-family: 'Inter', sans-serif; }}
             header[data-testid="stHeader"] {{ background: transparent !important; }}
             [data-testid="stToolbar"] {{ display: none !important; }}
-            .stAppDeployButton, button[title="Deploy this app"], button[title="View app source"] {{ display: none !important; }}
+            [data-testid="stAppDeployButton"], .stAppDeployButton, button[title="Deploy this app"], button[title="View app source"] {{ display: none !important; }}
             .block-container {{ padding: 0 !important; max-width: 560px !important; width: 100%; }}
             .stApp > .main {{ padding: 0 !important; }}
             #landing {{ display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; gap: 0.5rem; min-height: 80vh; }}
