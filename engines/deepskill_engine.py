@@ -198,19 +198,39 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
 
     viral_section = ""
     if viral_examples:
-        lines = []
-        for ve in viral_examples:
-            h = ve.get("hook", "").strip()
-            d = ve.get("descripcion", "").strip()
-            if h or d:
-                lines.append(f"- Hook: \"{h}\" | Descripción: {d}")
-        if lines:
-            viral_section = """
-EJEMPLOS DE CLIPS QUE FUNCIONARON MUY BIEN EN ESTE CANAL:
-""" + "\n".join(lines) + """
+        duraciones = [ve["clip_end"] - ve["clip_start"] for ve in viral_examples if ve.get("clip_end") and ve.get("clip_start")]
+        avg_dur = sum(duraciones) / len(duraciones) if duraciones else 0
+        min_dur = min(duraciones) if duraciones else 0
+        max_dur = max(duraciones) if duraciones else 0
 
-Prioriza patrones similares a estos ejemplos exitosos.
-"""
+        grupos: dict[str, list[dict]] = {}
+        for ve in viral_examples:
+            hook = (ve.get("hook") or "").strip()
+            if not hook:
+                continue
+            key = " ".join(hook.split()[:2]).lower()
+            grupos.setdefault(key, []).append(ve)
+
+        diversos = []
+        for g in grupos.values():
+            diversos.append(g[0])
+            if len(diversos) >= 3:
+                break
+
+        lines = []
+        lines.append(f"Duración promedio: {avg_dur:.0f}s (rango {min_dur:.0f}-{max_dur:.0f}s)")
+        lines.append("")
+        if diversos:
+            lines.append("Ejemplos diversos de clips que funcionaron en este canal:")
+            for ve in diversos:
+                h = ve.get("hook", "").strip()
+                d = ve.get("descripcion", "").strip()
+                lines.append(f"- Hook: \"{h}\" | {d[:100]}")
+            lines.append("")
+        lines.append("Estos son solo ejemplos. NO imites el tema exacto.")
+        lines.append("Úsalos como referencia de duración y estructura.")
+        lines.append("Tu criterio principal es el prompt base del canal.")
+        viral_section = "\n" + "\n".join(lines) + "\n"
 
     prompt = dedent(f"""
     DEVUELVE SOLO JSON. NO EXPLIQUES NADA. NO ESCRIBAS TEXTO.
