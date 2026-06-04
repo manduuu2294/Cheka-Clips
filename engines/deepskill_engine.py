@@ -186,7 +186,8 @@ def extract_json(text: str) -> str | None:
     return None
 
 
-def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int = 15) -> list[dict]:
+def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int = 15,
+                              viral_examples: list[dict] | None = None) -> list[dict]:
     llm = ChatOpenAI(
         model=MODEL,
         openai_api_key=api_key,
@@ -194,6 +195,22 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
         temperature=0.7,
         max_tokens=4096,
     )
+
+    viral_section = ""
+    if viral_examples:
+        lines = []
+        for ve in viral_examples:
+            h = ve.get("hook", "").strip()
+            d = ve.get("descripcion", "").strip()
+            if h or d:
+                lines.append(f"- Hook: \"{h}\" | Descripción: {d}")
+        if lines:
+            viral_section = """
+EJEMPLOS DE CLIPS QUE FUNCIONARON MUY BIEN EN ESTE CANAL:
+""" + "\n".join(lines) + """
+
+Prioriza patrones similares a estos ejemplos exitosos.
+"""
 
     prompt = dedent(f"""
     DEVUELVE SOLO JSON. NO EXPLIQUES NADA. NO ESCRIBAS TEXTO.
@@ -212,7 +229,7 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
     - DURACIÓN: Mínimo 40 segundos, máximo 2 minutos.
     - Consejos técnicos, roadmaps, estadísticas, realidades de Big Tech, metodologías.
     - No cortes la idea antes de tiempo.
-
+{viral_section}
     FORMATO JSON:
     [
       {{
@@ -305,7 +322,8 @@ def add_transcripcion_to_clips(clips: list[dict], transcripcion: str) -> None:
 
 
 def extract_clips(youtube_url: str, api_key: str, lang: str = "es",
-                  progress_callback=None) -> list[dict]:
+                  progress_callback=None,
+                  viral_examples: list[dict] | None = None) -> list[dict]:
     with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir)
 
@@ -347,7 +365,7 @@ def extract_clips(youtube_url: str, api_key: str, lang: str = "es",
             pct = 20 + int((i / len(chunks)) * 60)
             if progress_callback:
                 progress_callback(pct, f"Trozo {i + 1}/{len(chunks)} — analizando...")
-            chunk_clips = generate_clips_from_chunk(chunk, api_key)
+            chunk_clips = generate_clips_from_chunk(chunk, api_key, viral_examples=viral_examples)
             all_clips.extend(chunk_clips)
 
         if progress_callback:
