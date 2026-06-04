@@ -9,7 +9,10 @@ from database import init_db, save_analysis, get_analyses, get_analysis, update_
 
 if "db_initialized" not in st.session_state:
     init_db()
-    migrate_all_old_dbs()
+    try:
+        migrate_all_old_dbs()
+    except Exception:
+        pass
     st.session_state.db_initialized = True
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
