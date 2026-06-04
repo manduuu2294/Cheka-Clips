@@ -158,16 +158,15 @@ def migrate_old_db(old_path: Path, channel: str) -> int:
     conn = _get_conn()
     for row in old_rows:
         exists = conn.execute(
-            "SELECT id FROM analyses WHERE id = ? AND channel = ?",
-            (row["id"], channel),
+            "SELECT id FROM analyses WHERE video_url = ? AND channel = ?",
+            (row["video_url"], channel),
         ).fetchone()
         if not exists:
             conn.execute("""
-                INSERT INTO analyses (id, channel, video_url, video_id, video_title,
+                INSERT INTO analyses (channel, video_url, video_id, video_title,
                                       video_duration, created_at, clip_count, clips_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
-                row["id"],
                 channel,
                 row["video_url"],
                 row["video_id"],
@@ -197,17 +196,16 @@ def migrate_all_old_dbs():
         ).fetchall()
         for row in rows:
             exists = conn.execute(
-                "SELECT id FROM analyses WHERE id = ? AND channel = ?",
-                (row["id"], "deepskill"),
+                "SELECT id FROM analyses WHERE video_url = ? AND channel = ?",
+                (row["video_url"], channel),
             ).fetchone()
             if not exists:
                 conn.execute("""
-                    INSERT INTO analyses (id, channel, video_url, video_id, video_title,
+                    INSERT INTO analyses (channel, video_url, video_id, video_title,
                                           video_duration, created_at, clip_count, clips_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    row["id"],
-                    "deepskill",
+                    channel,
                     row["video_url"],
                     row["video_id"],
                     row["video_title"],
