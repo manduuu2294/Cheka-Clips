@@ -162,21 +162,24 @@ def migrate_old_db(old_path: Path, channel: str) -> int:
             (row["video_url"] or "", channel),
         ).fetchone()
         if not exists:
-            conn.execute("""
-                INSERT INTO analyses (channel, video_url, video_id, video_title,
-                                      video_duration, created_at, clip_count, clips_json)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            """, (
-                channel,
-                row["video_url"] or "",
-                row["video_id"] or "",
-                row["video_title"] or "",
-                row["video_duration"] or 0,
-                row["created_at"] or datetime.now().isoformat(),
-                row["clip_count"] or 0,
-                row["clips_json"] or "[]",
-            ))
-            count += 1
+            try:
+                conn.execute("""
+                    INSERT INTO analyses (channel, video_url, video_id, video_title,
+                                          video_duration, created_at, clip_count, clips_json)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    channel,
+                    row["video_url"] or "",
+                    row["video_id"] or "",
+                    row["video_title"] or "",
+                    row["video_duration"] or 0,
+                    row["created_at"] or datetime.now().isoformat(),
+                    row["clip_count"] or 0,
+                    row["clips_json"] or "[]",
+                ))
+                count += 1
+            except sqlite3.IntegrityError:
+                pass
     conn.commit()
     return count
 
@@ -197,24 +200,27 @@ def migrate_all_old_dbs():
         for row in rows:
             exists = conn.execute(
                 "SELECT id FROM analyses WHERE video_url = ? AND channel = ?",
-                (row["video_url"], channel),
+                (row["video_url"] or "", "deepskill"),
             ).fetchone()
             if not exists:
-                conn.execute("""
-                    INSERT INTO analyses (channel, video_url, video_id, video_title,
-                                          video_duration, created_at, clip_count, clips_json)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """, (
-                    channel,
-                    row["video_url"],
-                    row["video_id"],
-                    row["video_title"],
-                    row["video_duration"],
-                    row["created_at"],
-                    row["clip_count"],
-                    row["clips_json"],
-                ))
-                deepskill_count += 1
+                try:
+                    conn.execute("""
+                        INSERT INTO analyses (channel, video_url, video_id, video_title,
+                                              video_duration, created_at, clip_count, clips_json)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    """, (
+                        "deepskill",
+                        row["video_url"] or "",
+                        row["video_id"] or "",
+                        row["video_title"] or "",
+                        row["video_duration"] or 0,
+                        row["created_at"] or datetime.now().isoformat(),
+                        row["clip_count"] or 0,
+                        row["clips_json"] or "[]",
+                    ))
+                    deepskill_count += 1
+                except sqlite3.IntegrityError:
+                    pass
         conn.commit()
 
     return antauro_count, deepskill_count
