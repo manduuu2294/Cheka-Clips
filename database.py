@@ -54,6 +54,23 @@ def init_db():
     """)
     if not column_exists(conn, "analyses", "channel"):
         conn.execute("ALTER TABLE analyses ADD COLUMN channel TEXT NOT NULL DEFAULT ''")
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS viral_clips (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel       TEXT NOT NULL,
+            video_id      TEXT,
+            video_title   TEXT,
+            clip_start    REAL NOT NULL,
+            clip_end      REAL NOT NULL,
+            title         TEXT,
+            hook          TEXT,
+            descripcion   TEXT,
+            transcript    TEXT,
+            confidence    REAL,
+            created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+            UNIQUE(channel, video_id, clip_start, clip_end)
+        )
+    """)
     conn.commit()
 
 
@@ -203,3 +220,48 @@ def migrate_all_old_dbs():
         conn.commit()
 
     return antauro_count, deepskill_count
+
+
+def save_viral_clip(channel: str, video_id: str, video_title: str,
+                    clip_start: float, clip_end: float, title: str,
+                    hook: str, descripcion: str, transcript: str,
+                    confidence: float) -> bool:
+    conn = _get_conn()
+    try:
+        conn.execute("""
+            INSERT OR IGNORE INTO viral_clips
+                (channel, video_id, video_title, clip_start, clip_end,
+                 title, hook, descripcion, transcript, confidence)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (channel, video_id, video_title, clip_start, clip_end,
+              title, hook, descripcion, transcript, confidence))
+        conn.commit()
+        return conn.execute("SELECT changes()").fetchone()[0] > 0
+    except Exception:
+        return False
+
+
+def delete_viral_clip(channel: str, video_id: str, clip_start: float, clip_end: float) -> bool:
+    conn = _get_conn()
+    cur = conn.execute(
+        "DELETE FROM viral_clips WHERE channel=? AND video_id=? AND clip_start=? AND clip_end=?",
+        (channel, video_id, clip_start, clip_end),
+    )
+    conn.commit()
+    return cur.rowcount > 0
+
+
+def get_viral_clips(channel: str, limit: int = 5) -> list[dict]:
+    conn = _get_conn()
+    rows = conn.execute(
+        """SELECT channel, video_id, video_title, clip_start, clip_end,
+                  title, hook, descripcion, transcript, confidence
+           FROM viral_clips
+           WHERE channel = ?
+           ORDER BY id DESC
+           LIMIT ?""",
+        (channel, limit),
+    ).fetchall()
+    return [dict(r) for r in rows]
+
+ 
