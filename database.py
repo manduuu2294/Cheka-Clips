@@ -159,7 +159,7 @@ def migrate_old_db(old_path: Path, channel: str) -> int:
     for row in old_rows:
         exists = conn.execute(
             "SELECT id FROM analyses WHERE video_url = ? AND channel = ?",
-            (row["video_url"], channel),
+            (row["video_url"] or "", channel),
         ).fetchone()
         if not exists:
             conn.execute("""
@@ -168,13 +168,13 @@ def migrate_old_db(old_path: Path, channel: str) -> int:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """, (
                 channel,
-                row["video_url"],
-                row["video_id"],
-                row["video_title"],
-                row["video_duration"],
-                row["created_at"],
-                row["clip_count"],
-                row["clips_json"],
+                row["video_url"] or "",
+                row["video_id"] or "",
+                row["video_title"] or "",
+                row["video_duration"] or 0,
+                row["created_at"] or datetime.now().isoformat(),
+                row["clip_count"] or 0,
+                row["clips_json"] or "[]",
             ))
             count += 1
     conn.commit()
