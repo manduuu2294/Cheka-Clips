@@ -15,9 +15,9 @@ CHUNK_DURATION_SEC = 300
 MAX_CLIPS_PER_CHUNK = 15
 MAX_FINAL_CLIPS = 100
 MAX_CHARS_PER_CHUNK = 10_000
-SKIP_FIRST_SECONDS = 0
-MIN_CLIP_DURATION_SEC = 40
-MAX_CLIP_DURATION_SEC = 120
+SKIP_FIRST_SECONDS = 30
+MIN_CLIP_DURATION_SEC = 30
+MAX_CLIP_DURATION_SEC = 150
 
 
 def ts_to_seconds(ts: str) -> int:
@@ -236,8 +236,8 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
     prompt = dedent(f"""
     DEVUELVE SOLO JSON. NO EXPLIQUES NADA. NO ESCRIBAS TEXTO.
 
-    Eres un editor experto en contenido de alto valor para programadores.
-    Tu misión es extraer clips que sean "pepitas de oro" (conocimiento útil, roadmaps, consejos de carrera).
+    Eres un editor experto en contenido.
+    Tu misión es extraer los momentos más interesantes, útiles o entretenidos del video.
 
     CRÍTICO: REVISIÓN DE TRANSCRIPCIÓN Y COHERENCIA
     1. REVISA LA TRANSCRIPCIÓN: Antes de definir los tiempos, lee la transcripción adjunta.
@@ -246,9 +246,9 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
     4. SIN HUECOS: Inicio limpio y cierre con sentido completo.
 
     QUÉ BUSCAMOS:
-    - Clips de ALTO VALOR.
-    - DURACIÓN: Mínimo 40 segundos, máximo 2 minutos.
-    - Consejos técnicos, roadmaps, estadísticas, realidades de Big Tech, metodologías.
+    - Clips que mantengan la atención del espectador.
+    - DURACIÓN: Mínimo 30 segundos, máximo 2 minutos y medio.
+    - Prioriza momentos con información útil, curiosidades, opiniones contundentes o datos interesantes.
     - No cortes la idea antes de tiempo.
 {viral_section}
     FORMATO JSON:

@@ -47,7 +47,7 @@ CHANNELS = {
         "emoji": "🔵",
         "engine": "deepskill_engine",
         "entry_point": "extract_clips",
-        "description": "Extrae pepitas de oro tecnológicas para programadores",
+        "description": "Clips de tecnología, programación y contenido interesante (30s–150s)",
         "hashtags": {
             "python": "#Python",
             "javascript": "#JavaScript",
