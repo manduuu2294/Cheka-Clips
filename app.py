@@ -5,7 +5,7 @@ if sys.platform == "win32":
 import json, importlib, traceback, streamlit as st
 import os  # debug
 from channels import get_channel, list_channels
-from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs
+from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs, save_viral_clip, delete_viral_clip, get_viral_clips
 
 if "db_initialized" not in st.session_state:
     init_db()
@@ -35,6 +35,11 @@ def sc_pct(c): return f"{int(c*100)}%"
 def badge_pct(c):
     bg = "#16A34A" if c>=0.9 else "#D97706" if c>=0.75 else "#DC2626"
     return f'<span style="background:{bg};color:#fff;padding:0.04rem 0.4rem;font-weight:700;font-size:0.65rem">{sc_pct(c)}</span>'
+def _ts_to_sec(ts):
+    parts = ts.strip().split(":"); parts = [int(p) for p in parts]
+    if len(parts) == 3: return parts[0]*3600 + parts[1]*60 + parts[2]
+    if len(parts) == 2: return parts[0]*60 + parts[1]
+    return parts[0] if parts else 0
 
 ACCENTS = {"antauro_tv": "#65A30D", "deepskill": "#2563EB"}
 
@@ -198,7 +203,8 @@ with mcol:
                 em = importlib.import_module(f"engines.{channel_cfg['engine']}")
                 importlib.reload(em)
                 ep = getattr(em, channel_cfg["entry_point"]); gid = getattr(em, "get_video_id", lambda x: ""); gti = getattr(em, "get_video_title", lambda x: ""); gdu = getattr(em, "get_video_duration", lambda x: 0)
-                clips = ep(url, api_key, progress_callback=on_progress)
+                virales = get_viral_clips(st.session_state.channel, limit=5)
+                clips = ep(url, api_key, progress_callback=on_progress, viral_examples=virales)
                 st.session_state.clips = clips; st.session_state.view_mode = "view"
                 st.session_state.video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
                 st.session_state.current_analysis_id = None; prog.progress(1.0, text=f"Listo: {len(clips)} clips")
@@ -226,24 +232,45 @@ with mcol:
         else: mode = "Lectura"
         if mode: st.markdown(f'<p style="font-size:0.68rem;color:#A3A3A3;margin-bottom:0.2rem">{mode}</p>', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Mejores momentos</div>', unsafe_allow_html=True)
+        viral_keys = {f"{vr['video_id']}:{int(vr['clip_start'])}:{int(vr['clip_end'])}" for vr in get_viral_clips(st.session_state.channel, limit=500)}
+        viral_count = sum(1 for c in clips if f"{vid}:{_ts_to_sec(c.get('start',''))}:{_ts_to_sec(c.get('end',''))}" in viral_keys)
+        if viral_count:
+            st.markdown(f'<p style="font-size:0.72rem;color:#16A34A;margin:0 0 0.5rem 0">✅ {viral_count} clip{"s" if viral_count!=1 else ""} marcado{"s" if viral_count!=1 else ""} como viral</p>', unsafe_allow_html=True)
         gcv = getattr(em, "generar_copy_viral", None)
         for i, clip in enumerate(clips):
             start = clip.get("start","00:00:00"); end = clip.get("end","00:00:00"); tt = clip.get("title","Sin titulo"); hook = clip.get("hook",""); desc = clip.get("descripcion",""); conf = clip.get("confidence",0); why = clip.get("why",""); tc = clip.get("tiktok_copy","")
             dsec = t2s(end)-t2s(start); dst = fmt_cdur(dsec)
             tp = gcv(tt, hook, desc) if gcv else (tc or f"{tt}\n\n\"{hook}\"\n\n")
+            vk = f"{vid}:{_ts_to_sec(start)}:{_ts_to_sec(end)}"
+            is_viral = vk in viral_keys
+            viral_badge = f'<span style="background:#16A34A;color:#fff;padding:0.04rem 0.4rem;font-weight:700;font-size:0.65rem">✅ Viral</span>' if is_viral else ""
             st.markdown('<div class="clip-wrapper">', unsafe_allow_html=True)
-            st.markdown(f'<div class="clip-header-bar"><span class="clip-num">#{i+1}</span><span class="clip-title-text">{tt}</span><span class="clip-time">{start}-{end} | {dst}</span>{badge_pct(conf)}</div>', unsafe_allow_html=True)
-            with st.expander("+"):
-                if st.session_state.view_mode == "edit":
-                    if st.button("Eliminar", key=f"cd_{i}", type="secondary"): upd = list(st.session_state.clips); del upd[i]; st.session_state.clips = upd; st.session_state.analyses_needs_refresh = True; st.rerun()
-                if hook: st.markdown(f'<p style="font-style:italic;color:#737373;font-size:0.82rem">"{hook}"</p>', unsafe_allow_html=True)
-                if desc: st.markdown(f'<p style="color:#737373;font-size:0.8rem">{desc}</p>', unsafe_allow_html=True)
-                if why: st.markdown(f'<p style="color:#2563EB;font-size:0.75rem;font-weight:500">{why}</p>', unsafe_allow_html=True)
-                if tc: st.markdown(f'<p style="color:#D97706;font-size:0.75rem;font-weight:500">{tc}</p>', unsafe_allow_html=True)
-                st.markdown('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.65rem;margin-bottom:0.2rem">Copy</p>', unsafe_allow_html=True)
-                st.code(tp, language="text", line_numbers=False)
-                tr = clip.get("transcripcion","")
-                if tr: st.markdown('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.4rem;margin-bottom:0.15rem">Transcripcion</p>', unsafe_allow_html=True); st.write(tr)
+            st.markdown(f'<div class="clip-header-bar"><span class="clip-num">#{i+1}</span><span class="clip-title-text">{tt}</span><span class="clip-time">{start}-{end} | {dst}</span>{badge_pct(conf)}{viral_badge}</div>', unsafe_allow_html=True)
+            vcol, ecol = st.columns([0.15, 0.85])
+            with vcol:
+                btn_label = "✅ Viral" if is_viral else "⭐ Marcar"
+                key_suffix = f"uv_{vid}_{i}" if is_viral else f"v_{vid}_{i}"
+                btn_type = "primary" if is_viral else "secondary"
+                if st.button(btn_label, key=key_suffix, type=btn_type, help="Desmarcar como viral" if is_viral else "Marcar como viral", use_container_width=True):
+                    if is_viral:
+                        delete_viral_clip(st.session_state.channel, vid, _ts_to_sec(start), _ts_to_sec(end))
+                        viral_keys.discard(vk)
+                    else:
+                        save_viral_clip(st.session_state.channel, vid, title, _ts_to_sec(start), _ts_to_sec(end), tt, hook, desc, clip.get("transcripcion",""), conf)
+                        viral_keys.add(vk)
+                    st.rerun()
+            with ecol:
+                with st.expander("+"):
+                    if st.session_state.view_mode == "edit":
+                        if st.button("Eliminar", key=f"cd_{i}", type="secondary"): upd = list(st.session_state.clips); del upd[i]; st.session_state.clips = upd; st.session_state.analyses_needs_refresh = True; st.rerun()
+                    if hook: st.markdown(f'<p style="font-style:italic;color:#737373;font-size:0.82rem">"{hook}"</p>', unsafe_allow_html=True)
+                    if desc: st.markdown(f'<p style="color:#737373;font-size:0.8rem">{desc}</p>', unsafe_allow_html=True)
+                    if why: st.markdown(f'<p style="color:#2563EB;font-size:0.75rem;font-weight:500">{why}</p>', unsafe_allow_html=True)
+                    if tc: st.markdown(f'<p style="color:#D97706;font-size:0.75rem;font-weight:500">{tc}</p>', unsafe_allow_html=True)
+                    st.markdown('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.65rem;margin-bottom:0.2rem">Copy</p>', unsafe_allow_html=True)
+                    st.code(tp, language="text", line_numbers=False)
+                    tr = clip.get("transcripcion","")
+                    if tr: st.markdown('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.4rem;margin-bottom:0.15rem">Transcripcion</p>', unsafe_allow_html=True); st.write(tr)
             st.markdown("</div>", unsafe_allow_html=True)
 
     if clips is None:
