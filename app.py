@@ -15,9 +15,18 @@ if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
 st.set_page_config(page_title="Cheka Clips Hub", page_icon="🎬", layout="centered", initial_sidebar_state="expanded")
 
+if st.query_params.get("admin") == "1":
+    st.session_state.is_admin = True
+
 if "ch" in st.query_params:
     st.session_state.channel = st.query_params["ch"]
     st.query_params.clear()
+    if st.session_state.is_admin:
+        st.query_params.admin = "1"
+
+if st.session_state.get("_force_landing", False):
+    st.session_state._force_landing = False
+    st.session_state.channel = None
 
 for k in ("channel","clips","video_info","current_analysis_id","analyses_cache","view_mode"):
     if k not in st.session_state: st.session_state[k] = None
@@ -54,89 +63,126 @@ except: pass
 
 channel_cfg = get_channel(st.session_state.channel) if st.session_state.channel else None
 
+if st.session_state.channel == "admin_login":
+    st.html("""
+<style>
+    .chan-header { text-align: center; padding: 2rem 0 0.5rem 0; }
+    .chan-header .ch-name { font-size: 1.8rem; font-weight: 800; color: #1A1A1A; letter-spacing: -0.02em; }
+    .chan-header .ch-desc { font-size: 0.85rem; color: #737373; margin-top: 0.15rem; }
+</style>
+<div class="chan-header"><div class="ch-name">Administrador</div><div class="ch-desc">Inicia sesión para acceder al panel</div></div>
+""")
+    if st.button("← Volver al inicio"):
+        st.session_state._force_landing = True; st.rerun()
+    if not st.session_state.is_admin:
+        if not _admin_user or not _admin_pass:
+            st.error("No hay credenciales de administrador configuradas en secrets.toml")
+        else:
+            with st.form("login_form", clear_on_submit=False):
+                au = st.text_input("Usuario", placeholder="admin", label_visibility="collapsed")
+                ap = st.text_input("Contraseña", type="password", placeholder="••••••", label_visibility="collapsed")
+                if st.form_submit_button("Ingresar", type="primary", use_container_width=True):
+                    if au == _admin_user and ap == _admin_pass:
+                        st.session_state.is_admin = True
+                        st.query_params.admin = "1"; st.rerun()
+                    else:
+                        st.error("Credenciales incorrectas")
+    else:
+        st.session_state.channel = None; st.rerun()
+    st.stop()
+
 if channel_cfg is None:
     if st.session_state.is_admin:
-        ch_cards = ""
-        for ch in list_channels():
+        admin_channels = [ch for ch in list_channels() if ch["id"] != "general"]
+        st.html("""
+<div style="display:flex;align-items:center;justify-content:center;gap:0.5rem;padding:0.6rem 0;margin-bottom:1.5rem;border-bottom:1px solid #e5e7eb">
+    <span style="background:#16A34A;color:#fff;font-size:0.6rem;font-weight:700;padding:0.1rem 0.45rem;border-radius:3px;letter-spacing:0.04em">ADMIN</span>
+    <span style="font-size:0.82rem;color:#6B7280">Has iniciado sesión como administrador</span>
+</div>
+<style>
+    .admin-ch-link { text-decoration: none !important; display: block; width: 100%; flex: 1; }
+    .admin-ch-card { background: #FFFFFF; border: 1px solid #D4D4D4; border-radius: 8px; padding: 1rem 1rem; transition: all 0.2s ease; cursor: pointer; border-left: 4px solid transparent; min-height: 90px; display: flex; flex-direction: column; justify-content: center; }
+    .admin-ch-link:hover .admin-ch-card { background: #F5F5F5; border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }
+    .admin-ch-card .ct { font-weight: 700; font-size: 1rem; color: #1A1A1A; margin-bottom: 0.2rem; transition: color 0.2s ease; }
+    .admin-ch-link:hover .admin-ch-card .ct { color: var(--accent); }
+    .admin-ch-card .cd { font-size: 0.78rem; color: #737373; line-height: 1.4; }
+</style>
+<div style="display:flex;gap:0.65rem;width:100%">
+""")
+        for ch in admin_channels:
             accent = ACCENTS.get(ch["id"], "#65A30D")
-            ch_cards += (
-                f'<a href="?ch={ch["id"]}" class="ch-link" target="_self">'
-                f'<div class="ch-card" style="--accent:{accent}">'
-                f'<div class="ct">{ch["name"]}</div>'
-                f'<div class="cd">{ch["description"]}</div>'
-                f'</div></a>'
-            )
+            st.html(f'''
+<a href="?ch={ch["id"]}&admin=1" class="admin-ch-link" target="_self" style="flex:1;--accent:{accent}">
+    <div class="admin-ch-card">
+        <div class="ct">{ch["name"]}</div>
+        <div class="cd">{ch["description"]}</div>
+    </div>
+</a>
+''')
+        st.html("""
+</div>
+<div style="text-align:center;padding:1.5rem 0;color:#A3A3A3;font-size:0.7rem">
+    <strong>Cheka Clips Hub</strong>
+</div>
+""")
+        _, bcol, _ = st.columns([1, 2, 1])
+        with bcol:
+            if st.button("Cerrar sesión de administrador", key="landing_logout", type="secondary", use_container_width=True):
+                st.session_state.is_admin = False
+                st.query_params.clear()
+                st.rerun()
     else:
-        gen = get_channel("general")
         ch_cards = (
+            f'<a href="?ch=admin_login" class="ch-link" target="_self">'
+            f'<div class="ch-card" style="--accent:#1A1A1A">'
+            f'<div class="ct">Administrador</div>'
+            f'<div class="cd">Accede al panel de administración</div>'
+            f'</div></a>'
+        )
+        gen = get_channel("general")
+        ch_cards += (
             f'<a href="?ch=general" class="ch-link" target="_self">'
             f'<div class="ch-card" style="--accent:{ACCENTS["general"]}">'
             f'<div class="ct">{gen["name"]}</div>'
             f'<div class="cd">{gen["description"]}</div>'
             f'</div></a>'
         )
-    login_html = ""
-    if not st.session_state.is_admin:
-        login_html = """
-<div style="margin-top:1rem;text-align:center">
-    <p style="font-size:0.72rem;color:#A3A3A3">¿Eres administrador?</p>
-</div>"""
-    else:
-        login_html = """
-<div style="margin-top:1rem;text-align:center">
-    <p style="font-size:0.72rem;color:#16A34A">✅ Admin</p>
-</div>"""
-    st.markdown(f"""
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-        * {{ font-family: 'Inter', sans-serif; }}
-        header[data-testid="stHeader"] {{ background: transparent !important; }}
-        [data-testid="stToolbar"] {{ display: none !important; }}
-        .stAppDeployButton, button[title="Deploy this app"], button[title="View app source"] {{ display: none !important; }}
-        .block-container {{ padding: 0 !important; max-width: 560px !important; width: 100%; }}
-        .stApp > .main {{ padding: 0 !important; }}
-        #landing {{ display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; width: 100%; gap: 0.5rem; }}
-        .top-area {{ text-align: center; }}
-        .logo {{ font-size: 2.2rem; font-weight: 800; color: #1A1A1A; letter-spacing: -0.02em; }}
-        .logo .accent {{ color: #65A30D; }}
-        .sub {{ font-size: 0.85rem; color: #737373; margin-top: 0.15rem; }}
-        .ch-link {{ text-decoration: none !important; display: block; width: 100%; }}
-        .ch-card {{ background: #FFFFFF; border: 1px solid #D4D4D4; border-radius: 8px; padding: 1rem 1rem; transition: all 0.2s ease; cursor: pointer; border-left: 4px solid transparent; min-height: 90px; display: flex; flex-direction: column; justify-content: center; }}
-        .ch-link:hover .ch-card {{ background: #F5F5F5; border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }}
-        .ch-card .ct {{ font-weight: 700; font-size: 1rem; color: #1A1A1A; margin-bottom: 0.2rem; transition: color 0.2s ease; }}
-        .ch-link:hover .ch-card .ct {{ color: var(--accent); }}
-        .ch-card .cd {{ font-size: 0.78rem; color: #737373; line-height: 1.4; }}
-        .foot-note {{ text-align: center; padding: 1.5rem 0; color: #A3A3A3; font-size: 0.7rem; }}
-    </style>
-    <div id="landing">
-        <div class="top-area">
-            <div class="logo">Cheka<span class="accent">_</span>Clips</div>
-            <div class="sub">Selecciona un canal</div>
+        st.html(f"""
+        <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+            * {{ font-family: 'Inter', sans-serif; }}
+            header[data-testid="stHeader"] {{ background: transparent !important; }}
+            [data-testid="stToolbar"] {{ display: none !important; }}
+            .stAppDeployButton, button[title="Deploy this app"], button[title="View app source"] {{ display: none !important; }}
+            .block-container {{ padding: 0 !important; max-width: 560px !important; width: 100%; }}
+            .stApp > .main {{ padding: 0 !important; }}
+            #landing {{ display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; gap: 0.5rem; min-height: 80vh; }}
+            .top-area {{ text-align: center; }}
+            .logo {{ font-size: 2.2rem; font-weight: 800; color: #1A1A1A; letter-spacing: -0.02em; }}
+            .logo .accent {{ color: #65A30D; }}
+            .sub {{ font-size: 0.85rem; color: #737373; margin-top: 0.15rem; }}
+            .ch-link {{ text-decoration: none !important; display: block; width: 100%; }}
+            .ch-card {{ background: #FFFFFF; border: 1px solid #D4D4D4; border-radius: 8px; padding: 1rem 1rem; transition: all 0.2s ease; cursor: pointer; border-left: 4px solid transparent; min-height: 90px; display: flex; flex-direction: column; justify-content: center; }}
+            .ch-link:hover .ch-card {{ background: #F5F5F5; border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }}
+            .ch-card .ct {{ font-weight: 700; font-size: 1rem; color: #1A1A1A; margin-bottom: 0.2rem; transition: color 0.2s ease; }}
+            .ch-link:hover .ch-card .ct {{ color: var(--accent); }}
+            .ch-card .cd {{ font-size: 0.78rem; color: #737373; line-height: 1.4; }}
+            .foot-note {{ text-align: center; padding: 1.5rem 0; color: #A3A3A3; font-size: 0.7rem; }}
+        </style>
+        <div id="landing">
+            <div class="top-area">
+                <div class="logo">Cheka<span class="accent">_</span>Clips</div>
+                <div class="sub">Selecciona un canal</div>
+            </div>
+            {ch_cards}
+            <div class="foot-note"><strong>Cheka Clips Hub</strong></div>
         </div>
-        {ch_cards}
-        {login_html}
-        <div class="foot-note"><strong>Cheka Clips Hub</strong></div>
-    </div>
-    """, unsafe_allow_html=True)
-    if not st.session_state.is_admin and _admin_user and _admin_pass:
-        with st.popover("🔐 Admin"):
-            au = st.text_input("Usuario", placeholder="admin")
-            ap = st.text_input("Contraseña", type="password", placeholder="••••••")
-            if st.button("Ingresar", type="primary"):
-                if au == _admin_user and ap == _admin_pass:
-                    st.session_state.is_admin = True
-                    st.rerun()
-                else:
-                    st.error("Credenciales incorrectas")
-    elif st.session_state.is_admin:
-        if st.button("🚪 Cerrar sesión admin"):
-            st.session_state.is_admin = False
-            st.rerun()
+        """)
     st.stop()
 
 ACCENT = ACCENTS.get(st.session_state.channel, "#65A30D")
 
-st.markdown(f"""
+st.html(f"""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
     * {{ font-family: 'Inter', sans-serif; }}
@@ -183,12 +229,14 @@ st.markdown(f"""
     .stButton>button[kind="secondary"] {{ font-size: 0.78rem !important; height: 32px !important; padding: 0 0.75rem !important; }}
     @media(max-width:640px) {{ .steps, .metrics {{ grid-template-columns: 1fr; }} .video-info {{ flex-direction: column; }} .video-info img {{ width: 100%; }} }}
 </style>
-""", unsafe_allow_html=True)
+<div hidden></div>
+""")
 
-st.markdown(f'<div class="chan-header"><div class="ch-name">{channel_cfg["name"]}</div><div class="ch-desc">{channel_cfg["description"]}</div></div>', unsafe_allow_html=True)
-st.markdown(f'<div class="top-row"></div>', unsafe_allow_html=True)
+st.html(f'<div class="chan-header"><div class="ch-name">{channel_cfg["name"]}</div><div class="ch-desc">{channel_cfg["description"]}</div></div>')
+st.html(f'<div class="top-row"></div>')
 if st.button("← Volver al inicio", key="back"):
-    st.session_state.channel = None; st.session_state.clips = None; st.session_state.video_info = None
+    st.session_state._force_landing = True
+    st.session_state.clips = None; st.session_state.video_info = None
     st.session_state.current_analysis_id = None; st.session_state.analyses_needs_refresh = True; st.rerun()
 
 dk = ""
@@ -201,14 +249,14 @@ if st.session_state.analyses_needs_refresh:
     st.session_state.analyses_needs_refresh = False
 analyses = st.session_state.analyses_cache
 
-hcol, mcol = st.columns([1.1, 2.4])
 if st.session_state.is_admin:
+    hcol, mcol = st.columns([1.1, 2.4])
     with hcol:
-        st.markdown(f'<div class="sidebar-title">Historial</div>', unsafe_allow_html=True)
+        st.html(f'<div class="sidebar-title">Historial</div>')
         if analyses:
             for a in analyses:
                 t = a["video_title"] or "Video"
-                st.markdown(f'<div class="sidebar-card"><div class="sc-title">{t}</div><div class="sc-meta">{a["created_at"][:19].replace("T"," ")} - {a["clip_count"]} clips</div></div>', unsafe_allow_html=True)
+                st.html(f'<div class="sidebar-card"><div class="sc-title">{t}</div><div class="sc-meta">{a["created_at"][:19].replace("T"," ")} - {a["clip_count"]} clips</div></div>')
                 c1, c2, c3 = st.columns([1,1,1])
                 with c1:
                     if st.button("Ver", key=f"v_{a['id']}", use_container_width=True):
@@ -224,7 +272,9 @@ if st.session_state.is_admin:
                         if st.session_state.current_analysis_id == a["id"]: st.session_state.current_analysis_id = None; st.session_state.clips = None; st.session_state.video_info = None
                         st.rerun()
         else:
-            st.markdown(f'<p style="font-size:0.72rem;color:#A3A3A3;padding:0.3rem 0">Sin analisis</p>', unsafe_allow_html=True)
+            st.html(f'<p style="font-size:0.72rem;color:#A3A3A3;padding:0.3rem 0">Sin analisis</p>')
+else:
+    mcol = st.container()
 
 with mcol:
     with st.form("inputs"):
@@ -232,7 +282,7 @@ with mcol:
         api_key = st.text_input("DeepSeek API Key", type="password", value=dk, placeholder="sk-...", autocomplete="off")
         submitted = st.form_submit_button("Extraer clips", use_container_width=True)
         if dk:
-            st.markdown(f'<p style="font-size:0.68rem;color:#16A34A;text-align:center;margin-top:0.2rem">API Key desde secrets</p>', unsafe_allow_html=True)
+            st.html(f'<p style="font-size:0.68rem;color:#16A34A;text-align:center;margin-top:0.2rem">API Key desde secrets</p>')
 
     if submitted:
         if not url: st.error("Pega una URL de YouTube primero.")
@@ -261,9 +311,9 @@ with mcol:
         em = importlib.import_module(f"engines.{channel_cfg['engine']}"); t2s = getattr(em, "ts_to_seconds", lambda x: 0)
         vid = (vi or {}).get("id",""); title = (vi or {}).get("title",""); dur = (vi or {}).get("duration",0)
         thu = f"https://img.youtube.com/vi/{vid}/mqdefault.jpg" if vid else ""
-        st.markdown(f'<div class="card"><div class="section-label">Video</div><div class="video-info"><img src="{thu}" alt="" onerror="this.style.display=\'none\'"><div class="vd"><div class="vt">{title or "Video"}</div><div class="vm">{fmt_dur(dur)+" - " if dur else ""}{len(clips)} clips</div></div></div></div>', unsafe_allow_html=True)
+        st.html(f'<div class="card"><div class="section-label">Video</div><div class="video-info"><img src="{thu}" alt="" onerror="this.style.display=\'none\'"><div class="vd"><div class="vt">{title or "Video"}</div><div class="vm">{fmt_dur(dur)+" - " if dur else ""}{len(clips)} clips</div></div></div></div>')
         durs = [t2s(c.get("end","00:00:00"))-t2s(c.get("start","00:00:00")) for c in clips]; ad = sum(durs)/len(durs) if durs else 0; asc = sum(c.get("confidence",0) for c in clips)/len(clips) if clips else 0
-        st.markdown(f'<div class="metrics"><div class="metric"><div class="val">{len(clips)}</div><div class="lbl">Clips</div></div><div class="metric"><div class="val">{ad:.0f}s</div><div class="lbl">Duracion</div></div><div class="metric"><div class="val">{sc_pct(asc)}</div><div class="lbl">Score</div></div></div>', unsafe_allow_html=True)
+        st.html(f'<div class="metrics"><div class="metric"><div class="val">{len(clips)}</div><div class="lbl">Clips</div></div><div class="metric"><div class="val">{ad:.0f}s</div><div class="lbl">Duracion</div></div><div class="metric"><div class="val">{sc_pct(asc)}</div><div class="lbl">Score</div></div></div>')
         if st.session_state.is_admin:
             if st.session_state.current_analysis_id is None:
                 if st.button("Guardar en historial", use_container_width=True, type="primary"):
@@ -273,14 +323,14 @@ with mcol:
         if st.session_state.current_analysis_id is None: mode = "Vista previa"
         elif st.session_state.view_mode == "edit": mode = "Edicion"
         else: mode = "Lectura"
-        if mode: st.markdown(f'<p style="font-size:0.68rem;color:#A3A3A3;margin-bottom:0.2rem">{mode}</p>', unsafe_allow_html=True)
-        st.markdown('<div class="section-title">Mejores momentos</div>', unsafe_allow_html=True)
+        if mode: st.html(f'<p style="font-size:0.68rem;color:#A3A3A3;margin-bottom:0.2rem">{mode}</p>')
+        st.html('<div class="section-title">Mejores momentos</div>')
         viral_keys_set: set[str] = set()
         if st.session_state.is_admin:
             viral_keys_set = {f"{vr['video_id']}:{int(vr['clip_start'])}:{int(vr['clip_end'])}" for vr in get_viral_clips(st.session_state.channel, limit=500)}
             viral_count = sum(1 for c in clips if f"{vid}:{_ts_to_sec(c.get('start',''))}:{_ts_to_sec(c.get('end',''))}" in viral_keys_set)
             if viral_count:
-                st.markdown(f'<p style="font-size:0.72rem;color:#16A34A;margin:0 0 0.5rem 0">✅ {viral_count} clip{"s" if viral_count!=1 else ""} marcado{"s" if viral_count!=1 else ""} como viral</p>', unsafe_allow_html=True)
+                st.html(f'<p style="font-size:0.72rem;color:#16A34A;margin:0 0 0.5rem 0">✅ {viral_count} clip{"s" if viral_count!=1 else ""} marcado{"s" if viral_count!=1 else ""} como viral</p>')
         gcv = getattr(em, "generar_copy_viral", None)
         for i, clip in enumerate(clips):
             start = clip.get("start","00:00:00"); end = clip.get("end","00:00:00"); tt = clip.get("title","Sin titulo"); hook = clip.get("hook",""); desc = clip.get("descripcion",""); conf = clip.get("confidence",0); why = clip.get("why",""); tc = clip.get("tiktok_copy","")
@@ -291,8 +341,8 @@ with mcol:
             viral_badge = ""
             if st.session_state.is_admin:
                 viral_badge = f'<span style="background:#16A34A;color:#fff;padding:0.04rem 0.4rem;font-weight:700;font-size:0.65rem">✅ Viral</span>' if is_viral else ""
-            st.markdown('<div class="clip-wrapper">', unsafe_allow_html=True)
-            st.markdown(f'<div class="clip-header-bar"><span class="clip-num">#{i+1}</span><span class="clip-title-text">{tt}</span><span class="clip-time">{start}-{end} | {dst}</span>{badge_pct(conf)}{viral_badge}</div>', unsafe_allow_html=True)
+            st.html('<div class="clip-wrapper">')
+            st.html(f'<div class="clip-header-bar"><span class="clip-num">#{i+1}</span><span class="clip-title-text">{tt}</span><span class="clip-time">{start}-{end} | {dst}</span>{badge_pct(conf)}{viral_badge}</div>')
             vcol, ecol = st.columns([0.15, 0.85])
             with vcol:
                 if st.session_state.is_admin:
@@ -311,18 +361,18 @@ with mcol:
                 with st.expander("+"):
                     if st.session_state.view_mode == "edit":
                         if st.button("Eliminar", key=f"cd_{i}", type="secondary"): upd = list(st.session_state.clips); del upd[i]; st.session_state.clips = upd; st.session_state.analyses_needs_refresh = True; st.rerun()
-                    if hook: st.markdown(f'<p style="font-style:italic;color:#737373;font-size:0.82rem">"{hook}"</p>', unsafe_allow_html=True)
-                    if desc: st.markdown(f'<p style="color:#737373;font-size:0.8rem">{desc}</p>', unsafe_allow_html=True)
-                    if why: st.markdown(f'<p style="color:#2563EB;font-size:0.75rem;font-weight:500">{why}</p>', unsafe_allow_html=True)
-                    if tc: st.markdown(f'<p style="color:#D97706;font-size:0.75rem;font-weight:500">{tc}</p>', unsafe_allow_html=True)
-                    st.markdown('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.65rem;margin-bottom:0.2rem">Copy</p>', unsafe_allow_html=True)
+                    if hook: st.html(f'<p style="font-style:italic;color:#737373;font-size:0.82rem">"{hook}"</p>')
+                    if desc: st.html(f'<p style="color:#737373;font-size:0.8rem">{desc}</p>')
+                    if why: st.html(f'<p style="color:#2563EB;font-size:0.75rem;font-weight:500">{why}</p>')
+                    if tc: st.html(f'<p style="color:#D97706;font-size:0.75rem;font-weight:500">{tc}</p>')
+                    st.html('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.65rem;margin-bottom:0.2rem">Copy</p>')
                     st.code(tp, language="text", line_numbers=False)
                     tr = clip.get("transcripcion","")
-                    if tr: st.markdown('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.4rem;margin-bottom:0.15rem">Transcripcion</p>', unsafe_allow_html=True); st.write(tr)
-            st.markdown("</div>", unsafe_allow_html=True)
+                    if tr: st.html('<p style="font-size:0.62rem;font-weight:600;color:#9CA3AF;text-transform:uppercase;letter-spacing:0.05em;margin-top:0.4rem;margin-bottom:0.15rem">Transcripcion</p>'); st.write(tr)
+            st.html("</div>")
 
     if clips is None:
-        st.markdown(f'<div class="section-title">Como funciona?</div><div class="steps"><div class="step"><div class="num">1</div><div class="lbl">Pega la URL</div><div class="subl">Video de YouTube</div></div><div class="step"><div class="num">2</div><div class="lbl">DeepSeek analiza</div><div class="subl">IA extrae clips</div></div><div class="step"><div class="num">3</div><div class="lbl">Obtén los clips</div><div class="subl">Titulos y copy listos</div></div></div>', unsafe_allow_html=True)
+        st.html(f'<div class="section-title">Como funciona?</div><div class="steps"><div class="step"><div class="num">1</div><div class="lbl">Pega la URL</div><div class="subl">Video de YouTube</div></div><div class="step"><div class="num">2</div><div class="lbl">DeepSeek analiza</div><div class="subl">IA extrae clips</div></div><div class="step"><div class="num">3</div><div class="lbl">Obtén los clips</div><div class="subl">Titulos y copy listos</div></div></div>')
         with st.expander("Como obtener tu API Key de DeepSeek?"): st.markdown("1. [platform.deepseek.com](https://platform.deepseek.com)\n2. Registrate\n3. API Keys -> Create\n4. Copia la llave `sk-...`")
 
-    st.markdown(f'<div class="footer"><strong>Cheka Clips Hub</strong> | {channel_cfg["emoji"]} {channel_cfg["name"]}</div>', unsafe_allow_html=True)
+    st.html(f'<div class="footer"><strong>Cheka Clips Hub</strong> | {channel_cfg["emoji"]} {channel_cfg["name"]}</div>')
