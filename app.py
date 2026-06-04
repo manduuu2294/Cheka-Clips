@@ -11,6 +11,8 @@ if "db_initialized" not in st.session_state:
     init_db()
     migrate_all_old_dbs()
     st.session_state.db_initialized = True
+if "is_admin" not in st.session_state:
+    st.session_state.is_admin = False
 st.set_page_config(page_title="Cheka Clips Hub", page_icon="🎬", layout="centered", initial_sidebar_state="expanded")
 
 if "ch" in st.query_params:
@@ -41,21 +43,49 @@ def _ts_to_sec(ts):
     if len(parts) == 2: return parts[0]*60 + parts[1]
     return parts[0] if parts else 0
 
-ACCENTS = {"antauro_tv": "#65A30D", "deepskill": "#2563EB"}
+ACCENTS = {"antauro_tv": "#65A30D", "deepskill": "#2563EB", "general": "#A855F7"}
+
+_admin_user = ""
+_admin_pass = ""
+try:
+    if "ADMIN_USERNAME" in st.secrets: _admin_user = st.secrets["ADMIN_USERNAME"]
+    if "ADMIN_PASSWORD" in st.secrets: _admin_pass = st.secrets["ADMIN_PASSWORD"]
+except: pass
 
 channel_cfg = get_channel(st.session_state.channel) if st.session_state.channel else None
 
 if channel_cfg is None:
-    ch_cards = ""
-    for ch in list_channels():
-        accent = ACCENTS.get(ch["id"], "#65A30D")
-        ch_cards += (
-            f'<a href="?ch={ch["id"]}" class="ch-link" target="_self">'
-            f'<div class="ch-card" style="--accent:{accent}">'
-            f'<div class="ct">{ch["name"]}</div>'
-            f'<div class="cd">{ch["description"]}</div>'
+    if st.session_state.is_admin:
+        ch_cards = ""
+        for ch in list_channels():
+            accent = ACCENTS.get(ch["id"], "#65A30D")
+            ch_cards += (
+                f'<a href="?ch={ch["id"]}" class="ch-link" target="_self">'
+                f'<div class="ch-card" style="--accent:{accent}">'
+                f'<div class="ct">{ch["name"]}</div>'
+                f'<div class="cd">{ch["description"]}</div>'
+                f'</div></a>'
+            )
+    else:
+        gen = get_channel("general")
+        ch_cards = (
+            f'<a href="?ch=general" class="ch-link" target="_self">'
+            f'<div class="ch-card" style="--accent:{ACCENTS["general"]}">'
+            f'<div class="ct">{gen["name"]}</div>'
+            f'<div class="cd">{gen["description"]}</div>'
             f'</div></a>'
         )
+    login_html = ""
+    if not st.session_state.is_admin:
+        login_html = """
+<div style="margin-top:1rem;text-align:center">
+    <p style="font-size:0.72rem;color:#A3A3A3">¿Eres administrador?</p>
+</div>"""
+    else:
+        login_html = """
+<div style="margin-top:1rem;text-align:center">
+    <p style="font-size:0.72rem;color:#16A34A">✅ Admin</p>
+</div>"""
     st.markdown(f"""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -76,9 +106,6 @@ if channel_cfg is None:
         .ch-card .ct {{ font-weight: 700; font-size: 1rem; color: #1A1A1A; margin-bottom: 0.2rem; transition: color 0.2s ease; }}
         .ch-link:hover .ch-card .ct {{ color: var(--accent); }}
         .ch-card .cd {{ font-size: 0.78rem; color: #737373; line-height: 1.4; }}
-        .add-box {{ display: flex; align-items: center; justify-content: center; gap: 0.4rem; padding: 0.65rem; border: 2px dashed #D4D4D4; border-radius: 8px; margin-top: 0.75rem; width: 100%; }}
-        .add-box span {{ font-size: 0.78rem; color: #A3A3A3; }}
-        .add-box code {{ font-size: 0.72rem; background: #FFFFFF; padding: 0.1rem 0.3rem; border-radius: 3px; border: 1px solid #E5E5E5; }}
         .foot-note {{ text-align: center; padding: 1.5rem 0; color: #A3A3A3; font-size: 0.7rem; }}
     </style>
     <div id="landing">
@@ -87,10 +114,24 @@ if channel_cfg is None:
             <div class="sub">Selecciona un canal</div>
         </div>
         {ch_cards}
-        <div class="add-box"><span>+</span><span>Agrega mas canales editando <code>channels.py</code></span></div>
+        {login_html}
         <div class="foot-note"><strong>Cheka Clips Hub</strong></div>
     </div>
     """, unsafe_allow_html=True)
+    if not st.session_state.is_admin and _admin_user and _admin_pass:
+        with st.popover("🔐 Admin"):
+            au = st.text_input("Usuario", placeholder="admin")
+            ap = st.text_input("Contraseña", type="password", placeholder="••••••")
+            if st.button("Ingresar", type="primary"):
+                if au == _admin_user and ap == _admin_pass:
+                    st.session_state.is_admin = True
+                    st.rerun()
+                else:
+                    st.error("Credenciales incorrectas")
+    elif st.session_state.is_admin:
+        if st.button("🚪 Cerrar sesión admin"):
+            st.session_state.is_admin = False
+            st.rerun()
     st.stop()
 
 ACCENT = ACCENTS.get(st.session_state.channel, "#65A30D")
@@ -161,28 +202,29 @@ if st.session_state.analyses_needs_refresh:
 analyses = st.session_state.analyses_cache
 
 hcol, mcol = st.columns([1.1, 2.4])
-with hcol:
-    st.markdown(f'<div class="sidebar-title">Historial</div>', unsafe_allow_html=True)
-    if analyses:
-        for a in analyses:
-            t = a["video_title"] or "Video"
-            st.markdown(f'<div class="sidebar-card"><div class="sc-title">{t}</div><div class="sc-meta">{a["created_at"][:19].replace("T"," ")} - {a["clip_count"]} clips</div></div>', unsafe_allow_html=True)
-            c1, c2, c3 = st.columns([1,1,1])
-            with c1:
-                if st.button("Ver", key=f"v_{a['id']}", use_container_width=True):
-                    an = get_analysis(a["id"])
-                    if an: st.session_state.clips = an["clips"]; st.session_state.video_info = {"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]}; st.session_state.current_analysis_id = a["id"]; st.session_state.view_mode = "view"; st.rerun()
-            with c2:
-                if st.button("Editar", key=f"e_{a['id']}", use_container_width=True):
-                    an = get_analysis(a["id"])
-                    if an: st.session_state.clips = an["clips"]; st.session_state.video_info = {"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]}; st.session_state.current_analysis_id = a["id"]; st.session_state.view_mode = "edit"; st.rerun()
-            with c3:
-                if st.button("Eliminar", key=f"d_{a['id']}", use_container_width=True):
-                    delete_analysis(a["id"]); st.session_state.analyses_needs_refresh = True
-                    if st.session_state.current_analysis_id == a["id"]: st.session_state.current_analysis_id = None; st.session_state.clips = None; st.session_state.video_info = None
-                    st.rerun()
-    else:
-        st.markdown(f'<p style="font-size:0.72rem;color:#A3A3A3;padding:0.3rem 0">Sin analisis</p>', unsafe_allow_html=True)
+if st.session_state.is_admin:
+    with hcol:
+        st.markdown(f'<div class="sidebar-title">Historial</div>', unsafe_allow_html=True)
+        if analyses:
+            for a in analyses:
+                t = a["video_title"] or "Video"
+                st.markdown(f'<div class="sidebar-card"><div class="sc-title">{t}</div><div class="sc-meta">{a["created_at"][:19].replace("T"," ")} - {a["clip_count"]} clips</div></div>', unsafe_allow_html=True)
+                c1, c2, c3 = st.columns([1,1,1])
+                with c1:
+                    if st.button("Ver", key=f"v_{a['id']}", use_container_width=True):
+                        an = get_analysis(a["id"])
+                        if an: st.session_state.clips = an["clips"]; st.session_state.video_info = {"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]}; st.session_state.current_analysis_id = a["id"]; st.session_state.view_mode = "view"; st.rerun()
+                with c2:
+                    if st.button("Editar", key=f"e_{a['id']}", use_container_width=True):
+                        an = get_analysis(a["id"])
+                        if an: st.session_state.clips = an["clips"]; st.session_state.video_info = {"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]}; st.session_state.current_analysis_id = a["id"]; st.session_state.view_mode = "edit"; st.rerun()
+                with c3:
+                    if st.button("Eliminar", key=f"d_{a['id']}", use_container_width=True):
+                        delete_analysis(a["id"]); st.session_state.analyses_needs_refresh = True
+                        if st.session_state.current_analysis_id == a["id"]: st.session_state.current_analysis_id = None; st.session_state.clips = None; st.session_state.video_info = None
+                        st.rerun()
+        else:
+            st.markdown(f'<p style="font-size:0.72rem;color:#A3A3A3;padding:0.3rem 0">Sin analisis</p>', unsafe_allow_html=True)
 
 with mcol:
     with st.form("inputs"):
@@ -203,7 +245,7 @@ with mcol:
                 em = importlib.import_module(f"engines.{channel_cfg['engine']}")
                 importlib.reload(em)
                 ep = getattr(em, channel_cfg["entry_point"]); gid = getattr(em, "get_video_id", lambda x: ""); gti = getattr(em, "get_video_title", lambda x: ""); gdu = getattr(em, "get_video_duration", lambda x: 0)
-                virales = get_viral_clips(st.session_state.channel, limit=5)
+                virales = get_viral_clips(st.session_state.channel, limit=5) if st.session_state.is_admin else None
                 clips = ep(url, api_key, progress_callback=on_progress, viral_examples=virales)
                 st.session_state.clips = clips; st.session_state.view_mode = "view"
                 st.session_state.video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
@@ -222,43 +264,49 @@ with mcol:
         st.markdown(f'<div class="card"><div class="section-label">Video</div><div class="video-info"><img src="{thu}" alt="" onerror="this.style.display=\'none\'"><div class="vd"><div class="vt">{title or "Video"}</div><div class="vm">{fmt_dur(dur)+" - " if dur else ""}{len(clips)} clips</div></div></div></div>', unsafe_allow_html=True)
         durs = [t2s(c.get("end","00:00:00"))-t2s(c.get("start","00:00:00")) for c in clips]; ad = sum(durs)/len(durs) if durs else 0; asc = sum(c.get("confidence",0) for c in clips)/len(clips) if clips else 0
         st.markdown(f'<div class="metrics"><div class="metric"><div class="val">{len(clips)}</div><div class="lbl">Clips</div></div><div class="metric"><div class="val">{ad:.0f}s</div><div class="lbl">Duracion</div></div><div class="metric"><div class="val">{sc_pct(asc)}</div><div class="lbl">Score</div></div></div>', unsafe_allow_html=True)
-        if st.session_state.current_analysis_id is None:
-            if st.button("Guardar en historial", use_container_width=True, type="primary"):
-                aid = save_analysis(channel=st.session_state.channel, video_url="", video_id=st.session_state.video_info.get("id",""), video_title=st.session_state.video_info.get("title",""), video_duration=st.session_state.video_info.get("duration",0), clips=st.session_state.clips)
-                st.session_state.current_analysis_id = aid; st.session_state.analyses_needs_refresh = True; st.rerun()
+        if st.session_state.is_admin:
+            if st.session_state.current_analysis_id is None:
+                if st.button("Guardar en historial", use_container_width=True, type="primary"):
+                    aid = save_analysis(channel=st.session_state.channel, video_url="", video_id=st.session_state.video_info.get("id",""), video_title=st.session_state.video_info.get("title",""), video_duration=st.session_state.video_info.get("duration",0), clips=st.session_state.clips)
+                    st.session_state.current_analysis_id = aid; st.session_state.analyses_needs_refresh = True; st.rerun()
         mode = ""; 
         if st.session_state.current_analysis_id is None: mode = "Vista previa"
         elif st.session_state.view_mode == "edit": mode = "Edicion"
         else: mode = "Lectura"
         if mode: st.markdown(f'<p style="font-size:0.68rem;color:#A3A3A3;margin-bottom:0.2rem">{mode}</p>', unsafe_allow_html=True)
         st.markdown('<div class="section-title">Mejores momentos</div>', unsafe_allow_html=True)
-        viral_keys = {f"{vr['video_id']}:{int(vr['clip_start'])}:{int(vr['clip_end'])}" for vr in get_viral_clips(st.session_state.channel, limit=500)}
-        viral_count = sum(1 for c in clips if f"{vid}:{_ts_to_sec(c.get('start',''))}:{_ts_to_sec(c.get('end',''))}" in viral_keys)
-        if viral_count:
-            st.markdown(f'<p style="font-size:0.72rem;color:#16A34A;margin:0 0 0.5rem 0">✅ {viral_count} clip{"s" if viral_count!=1 else ""} marcado{"s" if viral_count!=1 else ""} como viral</p>', unsafe_allow_html=True)
+        viral_keys_set: set[str] = set()
+        if st.session_state.is_admin:
+            viral_keys_set = {f"{vr['video_id']}:{int(vr['clip_start'])}:{int(vr['clip_end'])}" for vr in get_viral_clips(st.session_state.channel, limit=500)}
+            viral_count = sum(1 for c in clips if f"{vid}:{_ts_to_sec(c.get('start',''))}:{_ts_to_sec(c.get('end',''))}" in viral_keys_set)
+            if viral_count:
+                st.markdown(f'<p style="font-size:0.72rem;color:#16A34A;margin:0 0 0.5rem 0">✅ {viral_count} clip{"s" if viral_count!=1 else ""} marcado{"s" if viral_count!=1 else ""} como viral</p>', unsafe_allow_html=True)
         gcv = getattr(em, "generar_copy_viral", None)
         for i, clip in enumerate(clips):
             start = clip.get("start","00:00:00"); end = clip.get("end","00:00:00"); tt = clip.get("title","Sin titulo"); hook = clip.get("hook",""); desc = clip.get("descripcion",""); conf = clip.get("confidence",0); why = clip.get("why",""); tc = clip.get("tiktok_copy","")
             dsec = t2s(end)-t2s(start); dst = fmt_cdur(dsec)
             tp = gcv(tt, hook, desc) if gcv else (tc or f"{tt}\n\n\"{hook}\"\n\n")
             vk = f"{vid}:{_ts_to_sec(start)}:{_ts_to_sec(end)}"
-            is_viral = vk in viral_keys
-            viral_badge = f'<span style="background:#16A34A;color:#fff;padding:0.04rem 0.4rem;font-weight:700;font-size:0.65rem">✅ Viral</span>' if is_viral else ""
+            is_viral = vk in viral_keys_set
+            viral_badge = ""
+            if st.session_state.is_admin:
+                viral_badge = f'<span style="background:#16A34A;color:#fff;padding:0.04rem 0.4rem;font-weight:700;font-size:0.65rem">✅ Viral</span>' if is_viral else ""
             st.markdown('<div class="clip-wrapper">', unsafe_allow_html=True)
             st.markdown(f'<div class="clip-header-bar"><span class="clip-num">#{i+1}</span><span class="clip-title-text">{tt}</span><span class="clip-time">{start}-{end} | {dst}</span>{badge_pct(conf)}{viral_badge}</div>', unsafe_allow_html=True)
             vcol, ecol = st.columns([0.15, 0.85])
             with vcol:
-                btn_label = "✅ Viral" if is_viral else "⭐ Marcar"
-                key_suffix = f"uv_{vid}_{i}" if is_viral else f"v_{vid}_{i}"
-                btn_type = "primary" if is_viral else "secondary"
-                if st.button(btn_label, key=key_suffix, type=btn_type, help="Desmarcar como viral" if is_viral else "Marcar como viral", use_container_width=True):
-                    if is_viral:
-                        delete_viral_clip(st.session_state.channel, vid, _ts_to_sec(start), _ts_to_sec(end))
-                        viral_keys.discard(vk)
-                    else:
-                        save_viral_clip(st.session_state.channel, vid, title, _ts_to_sec(start), _ts_to_sec(end), tt, hook, desc, clip.get("transcripcion",""), conf)
-                        viral_keys.add(vk)
-                    st.rerun()
+                if st.session_state.is_admin:
+                    btn_label = "✅ Viral" if is_viral else "⭐ Marcar"
+                    key_suffix = f"uv_{vid}_{i}" if is_viral else f"v_{vid}_{i}"
+                    btn_type = "primary" if is_viral else "secondary"
+                    if st.button(btn_label, key=key_suffix, type=btn_type, help="Desmarcar como viral" if is_viral else "Marcar como viral", use_container_width=True):
+                        if is_viral:
+                            delete_viral_clip(st.session_state.channel, vid, _ts_to_sec(start), _ts_to_sec(end))
+                            viral_keys_set.discard(vk)
+                        else:
+                            save_viral_clip(st.session_state.channel, vid, title, _ts_to_sec(start), _ts_to_sec(end), tt, hook, desc, clip.get("transcripcion",""), conf)
+                            viral_keys_set.add(vk)
+                        st.rerun()
             with ecol:
                 with st.expander("+"):
                     if st.session_state.view_mode == "edit":
