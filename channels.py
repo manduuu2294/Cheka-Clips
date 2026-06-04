@@ -94,6 +94,17 @@ CHANNELS = {
         "default_hashtags": ["#Programación", "#DevTips"],
         "prompt_context": "contenido tech para programadores",
     },
+    "general": {
+        "id": "general",
+        "name": "Clip Rápido",
+        "emoji": "⚡",
+        "engine": "generic_engine",
+        "entry_point": "extract_clips",
+        "description": "Extrae clips virales de cualquier tema (noticias, fútbol, cursos, política, etc.)",
+        "hashtags": {},
+        "default_hashtags": ["#Clips", "#Viral"],
+        "prompt_context": "contenido general para cualquier tema",
+    },
 }
 
 
