@@ -54,12 +54,13 @@ def _ts_to_sec(ts):
 
 ACCENTS = {"antauro_tv": "#65A30D", "deepskill": "#2563EB", "general": "#A855F7"}
 
-_admin_user = ""
-_admin_pass = ""
-try:
-    if "ADMIN_USERNAME" in st.secrets: _admin_user = st.secrets["ADMIN_USERNAME"]
-    if "ADMIN_PASSWORD" in st.secrets: _admin_pass = st.secrets["ADMIN_PASSWORD"]
-except: pass
+_admin_user = os.environ.get("ADMIN_USERNAME", "")
+_admin_pass = os.environ.get("ADMIN_PASSWORD", "")
+if not _admin_user or not _admin_pass:
+    try:
+        if "ADMIN_USERNAME" in st.secrets: _admin_user = st.secrets["ADMIN_USERNAME"]
+        if "ADMIN_PASSWORD" in st.secrets: _admin_pass = st.secrets["ADMIN_PASSWORD"]
+    except: pass
 
 channel_cfg = get_channel(st.session_state.channel) if st.session_state.channel else None
 
@@ -239,10 +240,11 @@ if st.button("← Volver al inicio", key="back"):
     st.session_state.clips = None; st.session_state.video_info = None
     st.session_state.current_analysis_id = None; st.session_state.analyses_needs_refresh = True; st.rerun()
 
-dk = ""
-try:
-    if "DEEPSEEK_API_KEY" in st.secrets and st.secrets["DEEPSEEK_API_KEY"]: dk = st.secrets["DEEPSEEK_API_KEY"]
-except: pass
+dk = os.environ.get("DEEPSEEK_API_KEY", "")
+if not dk:
+    try:
+        if "DEEPSEEK_API_KEY" in st.secrets and st.secrets["DEEPSEEK_API_KEY"]: dk = st.secrets["DEEPSEEK_API_KEY"]
+    except: pass
 
 if st.session_state.analyses_needs_refresh:
     st.session_state.analyses_cache = get_analyses(channel=st.session_state.channel)
