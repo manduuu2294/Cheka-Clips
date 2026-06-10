@@ -71,7 +71,10 @@ class _TursoConnection:
 def _get_conn():
     global _conn
     if _use_turso():
-        return _TursoConnection()
+        try:
+            return _TursoConnection()
+        except Exception:
+            pass
     if _conn is not None:
         try:
             _conn.execute("SELECT 1")
