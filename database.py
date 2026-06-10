@@ -15,7 +15,10 @@ def _use_turso() -> bool:
 
 
 def _get_turso_url() -> str:
-    return os.environ.get("TURSO_DATABASE_URL", "")
+    url = os.environ.get("TURSO_DATABASE_URL", "")
+    if url.startswith("libsql://"):
+        url = "https://" + url[9:]
+    return url
 
 
 def _get_turso_token() -> str:
