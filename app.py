@@ -5,7 +5,7 @@ if sys.platform == "win32":
 import json, importlib, traceback, streamlit as st
 import os  # debug
 from channels import get_channel, list_channels
-from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs, save_viral_clip, delete_viral_clip, get_viral_clips
+from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs, save_viral_clip, delete_viral_clip, get_viral_clips, get_analysis_by_video_id
 
 if "db_initialized" not in st.session_state:
     init_db()
@@ -300,14 +300,26 @@ with mcol:
                 em = importlib.import_module(f"engines.{channel_cfg['engine']}")
                 importlib.reload(em)
                 ep = getattr(em, channel_cfg["entry_point"]); gid = getattr(em, "get_video_id", lambda x: ""); gti = getattr(em, "get_video_title", lambda x: ""); gdu = getattr(em, "get_video_duration", lambda x: 0)
-                virales = get_viral_clips(st.session_state.channel, limit=5) if st.session_state.is_admin else None
-                clips = ep(url, api_key, progress_callback=on_progress, viral_examples=virales)
-                st.session_state.clips = clips; st.session_state.view_mode = "view"
-                st.session_state.video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
-                st.session_state.current_analysis_id = None; prog.progress(1.0, text=f"Listo: {len(clips)} clips")
-                sts.success(f"Completado - {len(clips)} clips.")
+                video_id = gid(url)
+                skip_processing = False
+                if video_id:
+                    existente = get_analysis_by_video_id(st.session_state.channel, video_id)
+                    if existente:
+                        st.warning(f"⚠️ Este video ya fue cargado el {existente['created_at'][:10]} ({existente['clip_count']} clips). Mostrando resultados guardados.")
+                        st.session_state.clips = existente["clips"]
+                        st.session_state.video_info = {"id": video_id, "title": existente["video_title"], "duration": 0}
+                        st.session_state.current_analysis_id = existente["id"]
+                        st.session_state.view_mode = "view"
+                        skip_processing = True
+                if not skip_processing:
+                    virales = get_viral_clips(st.session_state.channel, limit=5) if st.session_state.is_admin else None
+                    clips = ep(url, api_key, progress_callback=on_progress, viral_examples=virales)
+                    st.session_state.clips = clips; st.session_state.view_mode = "view"
+                    st.session_state.video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
+                    st.session_state.current_analysis_id = None; prog.progress(1.0, text=f"Listo: {len(clips)} clips")
+                    sts.success(f"Completado - {len(clips)} clips.")
             except Exception as e: st.error(f"Error: {e}\n\n{traceback.format_exc()}"); prog.progress(1.0, text="Error"); st.stop()
-            if not clips: st.warning("No se encontraron clips."); st.stop()
+            if not skip_processing and not clips: st.warning("No se encontraron clips."); st.stop()
 
     clips = st.session_state.clips; vi = st.session_state.video_info
 
