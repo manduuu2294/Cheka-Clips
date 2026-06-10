@@ -7,6 +7,16 @@ import os  # debug
 from channels import get_channel, list_channels
 from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs, save_viral_clip, delete_viral_clip, get_viral_clips, get_analysis_by_video_id
 
+if "turso_env_set" not in st.session_state:
+    for k in ("TURSO_DATABASE_URL", "TURSO_DATABASE_TOKEN"):
+        if k not in os.environ:
+            try:
+                if k in st.secrets:
+                    os.environ[k] = st.secrets[k]
+            except Exception:
+                pass
+    st.session_state.turso_env_set = True
+
 if "db_initialized" not in st.session_state:
     init_db()
     try:

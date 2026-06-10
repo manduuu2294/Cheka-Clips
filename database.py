@@ -3,13 +3,72 @@ import sqlite3
 import time
 from datetime import datetime
 from pathlib import Path
+import os
 
 DB_PATH = Path(__file__).parent / "analisis.db"
 _conn: sqlite3.Connection | None = None
+_turso_client = None
 
 
-def _get_conn() -> sqlite3.Connection:
+def _use_turso() -> bool:
+    return bool(os.environ.get("TURSO_DATABASE_URL", "") and os.environ.get("TURSO_DATABASE_TOKEN", ""))
+
+
+def _get_turso_url() -> str:
+    return os.environ.get("TURSO_DATABASE_URL", "")
+
+
+def _get_turso_token() -> str:
+    return os.environ.get("TURSO_DATABASE_TOKEN", "")
+
+
+def _make_row_dict(row) -> dict:
+    if row is None:
+        return None
+    if isinstance(row, sqlite3.Row):
+        return dict(row)
+    return dict(zip(row.keys(), row.values()))
+
+
+def _make_rows_list(rows) -> list[dict]:
+    return [_make_row_dict(r) for r in rows]
+
+
+class _TursoCursor:
+    def __init__(self, result):
+        self._result = result
+        self.lastrowid = result.last_insert_rowid
+        self.rowcount = result.row_count
+
+    def fetchall(self):
+        return self._result.rows
+
+    def fetchone(self):
+        rows = self._result.rows
+        return rows[0] if rows else None
+
+
+class _TursoConnection:
+    def __init__(self):
+        global _turso_client
+        if _turso_client is None:
+            from libsql_client import create_client
+            _turso_client = create_client(url=_get_turso_url(), auth_token=_get_turso_token())
+        self._client = _turso_client
+
+    def execute(self, sql: str, parameters=None):
+        params = parameters if parameters is not None else ()
+        result = self._client.execute(sql, params)
+        return _TursoCursor(result)
+
+    def commit(self):
+        pass
+
+
+def _get_conn():
     global _conn
+    if _use_turso():
+        return _TursoConnection()
     if _conn is not None:
         try:
             _conn.execute("SELECT 1")
@@ -32,9 +91,11 @@ def _get_conn() -> sqlite3.Connection:
     raise sqlite3.OperationalError("No se pudo conectar a la base de datos")
 
 
-def column_exists(conn: sqlite3.Connection, table: str, col: str) -> bool:
+def column_exists(conn, table: str, col: str) -> bool:
     cols = conn.execute(f"PRAGMA table_info({table})").fetchall()
-    return any(c["name"] == col for c in cols)
+    if cols and hasattr(cols[0], "keys"):
+        return any(c["name"] == col for c in cols)
+    return any(c["name"] == col for c in _make_rows_list(cols))
 
 
 def init_db():
@@ -106,7 +167,11 @@ def get_analyses(channel: str = "") -> list[dict]:
         rows = conn.execute(
             "SELECT id, channel, video_url, video_title, created_at, clip_count FROM analyses ORDER BY id DESC"
         ).fetchall()
-    return [dict(r) for r in rows]
+    if not rows:
+        return []
+    if hasattr(rows[0], "keys"):
+        return [dict(r) for r in rows]
+    return _make_rows_list(rows)
 
 
 def get_analysis(analysis_id: int) -> dict | None:
@@ -116,7 +181,7 @@ def get_analysis(analysis_id: int) -> dict | None:
     ).fetchone()
     if row is None:
         return None
-    result = dict(row)
+    result = _make_row_dict(row)
     result["clips"] = json.loads(result.pop("clips_json") or "[]")
     return result
 
@@ -129,7 +194,7 @@ def get_analysis_by_video_id(channel: str, video_id: str) -> dict | None:
     ).fetchone()
     if row is None:
         return None
-    result = dict(row)
+    result = _make_row_dict(row)
     result["clips"] = json.loads(result.pop("clips_json") or "[]")
     return result
 
@@ -191,7 +256,7 @@ def migrate_old_db(old_path: Path, channel: str) -> int:
                     row["clips_json"] or "[]",
                 ))
                 count += 1
-            except sqlite3.IntegrityError:
+            except Exception:
                 pass
     conn.commit()
     return count
@@ -232,7 +297,7 @@ def migrate_all_old_dbs():
                         row["clips_json"] or "[]",
                     ))
                     deepskill_count += 1
-                except sqlite3.IntegrityError:
+                except Exception:
                     pass
         conn.commit()
 
@@ -253,7 +318,8 @@ def save_viral_clip(channel: str, video_id: str, video_title: str,
         """, (channel, video_id, video_title, clip_start, clip_end,
               title, hook, descripcion, transcript, confidence))
         conn.commit()
-        return conn.execute("SELECT changes()").fetchone()[0] > 0
+        ch = conn.execute("SELECT changes()").fetchone()
+        return ch[0] > 0
     except Exception:
         return False
 
@@ -279,6 +345,8 @@ def get_viral_clips(channel: str, limit: int = 5) -> list[dict]:
            LIMIT ?""",
         (channel, limit),
     ).fetchall()
-    return [dict(r) for r in rows]
-
- 
+    if not rows:
+        return []
+    if hasattr(rows[0], "keys"):
+        return [dict(r) for r in rows]
+    return _make_rows_list(rows)
