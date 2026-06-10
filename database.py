@@ -121,6 +121,19 @@ def get_analysis(analysis_id: int) -> dict | None:
     return result
 
 
+def get_analysis_by_video_id(channel: str, video_id: str) -> dict | None:
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT id, channel, video_id, video_title, created_at, clip_count, clips_json FROM analyses WHERE channel = ? AND video_id = ? ORDER BY id DESC LIMIT 1",
+        (channel, video_id),
+    ).fetchone()
+    if row is None:
+        return None
+    result = dict(row)
+    result["clips"] = json.loads(result.pop("clips_json") or "[]")
+    return result
+
+
 def update_analysis(analysis_id: int, clips: list[dict]) -> bool:
     conn = _get_conn()
     cur = conn.execute("""
