@@ -57,13 +57,27 @@ class _TursoCursor:
         self._result = result
         self.lastrowid = getattr(result, 'last_insert_rowid', 0)
         self.rowcount = getattr(result, 'rows_affected', 0)
+        self._columns = getattr(result, 'columns', None)
+
+    def _to_dict(self, row):
+        if self._columns and hasattr(row, '__getitem__'):
+            return dict(zip(self._columns, row))
+        return row
 
     def fetchall(self):
-        return self._result.rows
+        if not self._result.rows:
+            return []
+        if self._columns:
+            return [dict(zip(self._columns, r)) for r in self._result.rows]
+        return list(self._result.rows)
 
     def fetchone(self):
         rows = self._result.rows
-        return rows[0] if rows else None
+        if not rows:
+            return None
+        if self._columns:
+            return dict(zip(self._columns, rows[0]))
+        return rows[0]
 
 
 def _start_turso_loop():
