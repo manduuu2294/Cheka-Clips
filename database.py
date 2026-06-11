@@ -8,10 +8,22 @@ import os
 DB_PATH = Path(__file__).parent / "analisis.db"
 _conn: sqlite3.Connection | None = None
 _turso_client = None
+_turso_error: str | None = None
 
 
 def _use_turso() -> bool:
     return bool(os.environ.get("TURSO_DATABASE_URL", "") and os.environ.get("TURSO_DATABASE_TOKEN", ""))
+
+def _turso_debug() -> str:
+    url = os.environ.get("TURSO_DATABASE_URL", "")
+    tok = os.environ.get("TURSO_DATABASE_TOKEN", "")
+    parts = []
+    parts.append(f"URL={'set' if url else 'MISSING'} ({len(url)} chars)")
+    parts.append(f"TOKEN={'set' if tok else 'MISSING'} ({len(tok)} chars)")
+    global _turso_error
+    if _turso_error:
+        parts.append(f"ERROR: {_turso_error}")
+    return " | ".join(parts)
 
 
 def _get_turso_url() -> str:
@@ -71,10 +83,12 @@ class _TursoConnection:
 def _get_conn():
     global _conn
     if _use_turso():
+        global _turso_error
+        _turso_error = None
         try:
             return _TursoConnection()
-        except Exception:
-            pass
+        except Exception as e:
+            _turso_error = f"{type(e).__name__}: {e}"
     if _conn is not None:
         try:
             _conn.execute("SELECT 1")
