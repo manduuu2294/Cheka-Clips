@@ -1,5 +1,7 @@
+import asyncio
 import json
 import sqlite3
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -8,6 +10,7 @@ import os
 DB_PATH = Path(__file__).parent / "analisis.db"
 _conn: sqlite3.Connection | None = None
 _turso_client = None
+_turso_loop = None
 _turso_error: str | None = None
 
 
@@ -63,18 +66,35 @@ class _TursoCursor:
         return rows[0] if rows else None
 
 
+def _start_turso_loop():
+    global _turso_loop
+    if _turso_loop is not None:
+        return _turso_loop
+    _turso_loop = asyncio.new_event_loop()
+    t = threading.Thread(target=_turso_loop.run_forever, daemon=True)
+    t.start()
+    return _turso_loop
+
+
 class _TursoConnection:
     def __init__(self):
         global _turso_client
         if _turso_client is None:
-            from libsql_client import create_client
-            _turso_client = create_client(url=_get_turso_url(), auth_token=_get_turso_token())
+            loop = _start_turso_loop()
+            async def _make():
+                from libsql_client import create_client
+                return create_client(url=_get_turso_url(), auth_token=_get_turso_token())
+            future = asyncio.run_coroutine_threadsafe(_make(), loop)
+            _turso_client = future.result()
         self._client = _turso_client
+        self._loop = _turso_loop
 
     def execute(self, sql: str, parameters=None):
         params = parameters if parameters is not None else ()
-        result = self._client.execute(sql, params)
-        return _TursoCursor(result)
+        future = asyncio.run_coroutine_threadsafe(
+            self._client.execute(sql, params), self._loop
+        )
+        return _TursoCursor(future.result())
 
     def commit(self):
         pass
