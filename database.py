@@ -55,8 +55,8 @@ def _make_rows_list(rows) -> list[dict]:
 class _TursoCursor:
     def __init__(self, result):
         self._result = result
-        self.lastrowid = result.last_insert_rowid
-        self.rowcount = result.row_count
+        self.lastrowid = getattr(result, 'last_insert_rowid', 0)
+        self.rowcount = getattr(result, 'rows_affected', 0)
 
     def fetchall(self):
         return self._result.rows
