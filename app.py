@@ -5,17 +5,16 @@ if sys.platform == "win32":
 import json, importlib, traceback, streamlit as st
 import os  # debug
 from channels import get_channel, list_channels
-from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs, save_viral_clip, delete_viral_clip, get_viral_clips, get_analysis_by_video_id
+from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs, save_viral_clip, delete_viral_clip, get_viral_clips, get_analysis_by_video_id, _use_turso
 
-if "turso_env_set" not in st.session_state:
-    for k in ("TURSO_DATABASE_URL", "TURSO_DATABASE_TOKEN"):
-        if k not in os.environ:
-            try:
-                if k in st.secrets:
-                    os.environ[k] = st.secrets[k]
-            except Exception:
-                pass
-    st.session_state.turso_env_set = True
+st.set_page_config(page_title="Cheka Clips Hub", page_icon="🎬", layout="centered", initial_sidebar_state="expanded")
+
+for k in ("TURSO_DATABASE_URL", "TURSO_DATABASE_TOKEN"):
+    try:
+        if k in st.secrets and st.secrets[k]:
+            os.environ[k] = st.secrets[k]
+    except Exception:
+        pass
 
 if "db_initialized" not in st.session_state:
     init_db()
@@ -26,7 +25,6 @@ if "db_initialized" not in st.session_state:
     st.session_state.db_initialized = True
 if "is_admin" not in st.session_state:
     st.session_state.is_admin = False
-st.set_page_config(page_title="Cheka Clips Hub", page_icon="🎬", layout="centered", initial_sidebar_state="expanded")
 
 if st.query_params.get("admin") == "1":
     st.session_state.is_admin = True
@@ -402,4 +400,5 @@ with mcol:
         st.html(f'<div class="section-title">Como funciona?</div><div class="steps"><div class="step"><div class="num">1</div><div class="lbl">Pega la URL</div><div class="subl">Video de YouTube</div></div><div class="step"><div class="num">2</div><div class="lbl">DeepSeek analiza</div><div class="subl">IA extrae clips</div></div><div class="step"><div class="num">3</div><div class="lbl">Obtén los clips</div><div class="subl">Titulos y copy listos</div></div></div>')
         with st.expander("Como obtener tu API Key de DeepSeek?"): st.markdown("1. [platform.deepseek.com](https://platform.deepseek.com)\n2. Registrate\n3. API Keys -> Create\n4. Copia la llave `sk-...`")
 
-    st.html(f'<div class="footer"><strong>Cheka Clips Hub</strong> | {channel_cfg["emoji"]} {channel_cfg["name"]}</div>')
+    db_badge = "☁️ Turso" if _use_turso() else "💾 SQLite local"
+    st.html(f'<div class="footer"><strong>Cheka Clips Hub</strong> | {channel_cfg["emoji"]} {channel_cfg["name"]} | <span style="font-size:0.6rem;color:#9CA3AF">{db_badge}</span></div>')
