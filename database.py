@@ -83,7 +83,7 @@ def _get_conn():
             _conn = None
     for attempt in range(8):
         try:
-            _conn = sqlite3.connect(str(DB_PATH), timeout=20)
+            _conn = sqlite3.connect(str(DB_PATH), timeout=20, check_same_thread=False)
             _conn.row_factory = sqlite3.Row
             _conn.execute("PRAGMA journal_mode=DELETE")
             _conn.execute("PRAGMA busy_timeout=20000")
