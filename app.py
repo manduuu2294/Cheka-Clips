@@ -145,7 +145,7 @@ if channel_cfg is None:
                 st.query_params.clear()
                 st.rerun()
     else:
-        st.html(render_landing())
+        st.markdown(render_landing(), unsafe_allow_html=True)
         st.stop()
 
 ACCENT = ACCENTS.get(st.session_state.channel, "#65A30D")

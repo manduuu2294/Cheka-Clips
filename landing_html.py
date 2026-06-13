@@ -1,11 +1,10 @@
 _RAW = "https://raw.githubusercontent.com/manduuu2294/Cheka-Clips/main/landing/assets"
 
 def render_landing() -> str:
-    return f"""<style>
+    return f"""<div id="lr" style="position:fixed;inset:0;overflow:hidden;z-index:99999;background:#07070a;color:#fff;">
+<style>
 *,*::before,*::after{{margin:0;padding:0;box-sizing:border-box}}
 h1,h2,h3,h4,h5,h6,p,a,div,span{{font-family:inherit!important;font-size:inherit!important;font-weight:inherit!important;line-height:inherit!important;color:inherit!important}}
-header[data-testid="stHeader"]{{display:none!important}}
-.appview-container .main .block-container{{max-width:100%!important;padding:0!important;max-height:100vh!important}}
 
 :root{{
   --bg:#07070a;
@@ -16,11 +15,8 @@ header[data-testid="stHeader"]{{display:none!important}}
   --ease-out:cubic-bezier(0.16,1,0.3,1);
 }}
 
-html,body{{height:100%;overflow:hidden}}
-body{{
+#lr{{
   font-family:var(--font);
-  background:var(--bg);
-  color:var(--text);
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
 }}
@@ -275,6 +271,7 @@ body.is-processing .btn{{cursor:progress}}
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
 <script>
+document.addEventListener('DOMContentLoaded', function(){{
 const getBtn = document.querySelector('[data-action="clip"]')
 const body = document.body
 const scene = document.getElementById('scene')
@@ -411,4 +408,5 @@ getBtn.addEventListener('click',async e=>{{
   body.classList.remove('is-processing')
   EXIT_TL.play()
 }})
-</script>"""
+}})
+</script></div>"""
