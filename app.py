@@ -145,7 +145,7 @@ if channel_cfg is None:
                 st.query_params.clear()
                 st.rerun()
     else:
-        st.components.v1.html(render_landing(), height=1000, scrolling=True)
+        st.html(render_landing())
         st.stop()
 
 ACCENT = ACCENTS.get(st.session_state.channel, "#65A30D")
