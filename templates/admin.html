@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin — Cheka Clips Hub</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.login-box{width:100%;max-width:380px;padding:24px}
+.login-title{font-size:22px;font-weight:800;text-align:center;margin-bottom:4px}
+.login-desc{font-size:13px;color:rgba(255,255,255,0.25);text-align:center;margin-bottom:24px}
+.form-group{margin-bottom:14px}
+.form-input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:12px 14px;color:#fff;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:#A855F7}
+.form-input::placeholder{color:rgba(255,255,255,0.15)}
+.btn{display:inline-flex;align-items:center;justify-content:center;width:100%;padding:12px 24px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .2s;background:#A855F7;color:#fff}
+.btn:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.error{background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.2);border-radius:8px;padding:12px;color:#ef4444;font-size:13px;margin-bottom:16px;text-align:center}
+.back{display:block;text-align:center;margin-top:16px;color:rgba(255,255,255,0.2);font-size:13px;text-decoration:none;transition:color .2s}
+.back:hover{color:rgba(255,255,255,0.5)}
+</style>
+</head>
+<body>
+<div class="login-box">
+  <div class="login-title">Administrador</div>
+  <div class="login-desc">Inicia sesión para acceder al panel</div>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="POST" action="/admin">
+    <div class="form-group">
+      <input type="text" name="username" class="form-input" placeholder="Usuario" required>
+    </div>
+    <div class="form-group">
+      <input type="password" name="password" class="form-input" placeholder="Contraseña" required>
+    </div>
+    <button type="submit" class="btn">Ingresar</button>
+  </form>
+  <a href="/" class="back">&larr; Volver al inicio</a>
+</div>
+</body>
+</html>

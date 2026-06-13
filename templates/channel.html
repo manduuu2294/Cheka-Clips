@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>{{ channel.name }} — Cheka Clips Hub</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
+
+.container{max-width:1200px;margin:0 auto;padding:24px 20px}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.header-left{display:flex;align-items:center;gap:12px}
+.header-back{color:rgba(255,255,255,0.4);text-decoration:none;font-size:14px;transition:color .2s}
+.header-back:hover{color:#fff}
+.header-title{font-size:20px;font-weight:800;letter-spacing:-.02em}
+.header-accent{color:{{ accent }}}
+.header-desc{font-size:13px;color:rgba(255,255,255,0.25);margin-top:2px}
+
+.card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:16px}
+.form-group{margin-bottom:14px}
+.form-group label{display:block;font-size:12px;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
+.form-input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:12px 14px;color:#fff;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
+.form-input:focus{border-color:{{ accent }}}
+.form-input::placeholder{color:rgba(255,255,255,0.15)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .2s;text-decoration:none}
+.btn-primary{background:{{ accent }};color:#fff}
+.btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-secondary{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.08)}
+.btn-secondary:hover{background:rgba(255,255,255,0.1);color:#fff}
+.btn-small{padding:6px 12px;font-size:12px}
+.btn-full{width:100%}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
+.metric{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;text-align:center}
+.metric-val{font-size:22px;font-weight:800;color:#fff}
+.metric-lbl{font-size:11px;font-weight:500;color:rgba(255,255,255,0.3);text-transform:uppercase;margin-top:2px}
+
+.section-title{font-size:14px;font-weight:700;color:rgba(255,255,255,0.5);margin:20px 0 12px 0;text-transform:uppercase;letter-spacing:.04em}
+
+.clip-wrapper{margin-bottom:8px}
+.clip-header{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px 8px 0 0}
+.clip-num{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5);padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;flex-shrink:0}
+.clip-title{flex:1;font-size:13px;font-weight:500;color:rgba(255,255,255,0.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.clip-time{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35);padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace;flex-shrink:0}
+.clip-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;flex-shrink:0}
+
+.clip-body{border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 8px 8px;padding:14px;display:none}
+.clip-body.open{display:block}
+.clip-toggle{cursor:pointer;padding:8px;color:rgba(255,255,255,0.2);font-size:12px;transition:color .2s;flex-shrink:0}
+.clip-toggle:hover{color:rgba(255,255,255,0.5)}
+
+.clip-detail{margin-bottom:10px}
+.clip-detail-label{font-size:10px;font-weight:600;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.clip-detail-text{font-size:13px;color:rgba(255,255,255,0.6);line-height:1.5}
+.clip-detail-text.code{background:rgba(255,255,255,0.04);padding:10px;border-radius:6px;font-family:monospace;font-size:12px;white-space:pre-wrap;color:rgba(255,255,255,0.5)}
+
+.video-info{display:flex;align-items:center;gap:14px}
+.video-info img{border-radius:6px;width:120px;border:1px solid rgba(255,255,255,0.08)}
+.video-info .vi-title{font-size:15px;font-weight:600;color:#fff}
+.video-info .vi-meta{font-size:12px;color:rgba(255,255,255,0.3);margin-top:2px}
+
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:16px 0}
+.step{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:16px;text-align:center}
+.step-num{display:inline-block;width:28px;height:28px;line-height:28px;background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.3);border-radius:50%;font-weight:700;font-size:13px;margin-bottom:8px}
+.step-title{font-size:13px;font-weight:600;color:rgba(255,255,255,0.7);margin-bottom:2px}
+.step-desc{font-size:12px;color:rgba(255,255,255,0.25)}
+
+.footer{text-align:center;padding:24px 0 8px 0;color:rgba(255,255,255,0.15);font-size:12px}
+.footer .badge{font-size:10px;display:inline-block;background:rgba(255,255,255,0.04);padding:2px 8px;border-radius:4px}
+
+.error-msg{background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.2);border-radius:8px;padding:14px;color:#ef4444;font-size:13px;margin-bottom:16px}
+
+@media(max-width:640px){.metrics,.steps{grid-template-columns:1fr}}
+</style>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="header-left">
+      <a href="/" class="header-back">&larr; Inicio</a>
+      <div>
+        <div class="header-title"><span class="header-accent">{{ channel.name }}</span></div>
+        <div class="header-desc">{{ channel.description }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="error-msg">{{ error }}</div>
+  {% endif %}
+
+  <div class="card">
+    <form method="POST" action="/ch/{{ channel.id }}/analyze{% if is_admin %}?admin=1{% endif %}">
+      <div class="form-group">
+        <label>URL del video</label>
+        <input type="text" name="url" class="form-input" placeholder="https://www.youtube.com/watch?v=..." required>
+      </div>
+      <div class="form-group">
+        <label>DeepSeek API Key</label>
+        <input type="password" name="api_key" class="form-input" placeholder="sk-..." required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-full">Extraer clips</button>
+    </form>
+  </div>
+
+  {% if clips is not none and clips|length > 0 %}
+  <div class="card">
+    <div class="section-label">Video</div>
+    <div class="video-info">
+      {% set vid = video_info.get('id','') %}
+      {% set thumb = "https://img.youtube.com/vi/"+vid+"/mqdefault.jpg" if vid else "" %}
+      {% if thumb %}<img src="{{ thumb }}" alt="" onerror="this.style.display='none'">{% endif %}
+      <div>
+        <div class="vi-title">{{ video_info.get('title','Video') }}</div>
+        <div class="vi-meta">{{ clips|length }} clips</div>
+      </div>
+    </div>
+  </div>
+
+  {% set durs = clips|map(attribute='end')|list %}
+  {% set ad = 0 %}
+  <div class="metrics">
+    <div class="metric"><div class="metric-val">{{ clips|length }}</div><div class="metric-lbl">Clips</div></div>
+    <div class="metric"><div class="metric-val">{{ clips|length }}</div><div class="metric-lbl">Total</div></div>
+    <div class="metric"><div class="metric-val">{{ "%.0f"|format(clips|sum(attribute='confidence')/clips|length * 100) }}%</div><div class="metric-lbl">Score</div></div>
+  </div>
+
+  <div class="section-title">Mejores momentos</div>
+  {% for clip in clips %}
+    {% set start = clip.get('start','00:00:00') %}
+    {% set end = clip.get('end','00:00:00') %}
+    {% set tt = clip.get('title','Sin título') %}
+    {% set hook = clip.get('hook','') %}
+    {% set desc = clip.get('descripcion','') %}
+    {% set conf = clip.get('confidence',0) %}
+    {% set why = clip.get('why','') %}
+    {% set tc = clip.get('tiktok_copy','') %}
+    {% set tr = clip.get('transcripcion','') %}
+    {% set vk = vid ~ ':' ~ start ~ ':' ~ end %}
+    {% set is_viral = vk in viral_keys_set %}
+
+    <div class="clip-wrapper">
+      <div class="clip-header">
+        <span class="clip-num">#{{ loop.index }}</span>
+        <span class="clip-title">{{ tt }}</span>
+        <span class="clip-time">{{ start }}-{{ end }}</span>
+        {% set bg = "#16A34A" if conf >= 0.9 else "#D97706" if conf >= 0.75 else "#DC2626" %}
+        <span class="clip-badge" style="background:{{ bg }}">{{ "%.0f"|format(conf*100) }}%</span>
+        {% if is_viral %}
+        <span class="clip-badge" style="background:#16A34A">Viral</span>
+        {% endif %}
+        <span class="clip-toggle" onclick="toggleBody(this)">&#9660;</span>
+      </div>
+      <div class="clip-body">
+        {% if hook %}<div class="clip-detail"><div class="clip-detail-label">Hook</div><div class="clip-detail-text">"{{ hook }}"</div></div>{% endif %}
+        {% if desc %}<div class="clip-detail"><div class="clip-detail-label">Descripción</div><div class="clip-detail-text">{{ desc }}</div></div>{% endif %}
+        {% if why %}<div class="clip-detail"><div class="clip-detail-label">Por qué funciona</div><div class="clip-detail-text" style="color:#60a5fa">{{ why }}</div></div>{% endif %}
+        {% if tc %}<div class="clip-detail"><div class="clip-detail-label">TikTok Copy</div><div class="clip-detail-text" style="color:#d97706">{{ tc }}</div></div>{% endif %}
+        <div class="clip-detail"><div class="clip-detail-label">Copy</div><div class="clip-detail-text code">{{ tc or (tt + '\n\n"' + hook + '"\n\n') }}</div></div>
+        {% if tr %}<div class="clip-detail"><div class="clip-detail-label">Transcripción</div><div class="clip-detail-text">{{ tr }}</div></div>{% endif %}
+      </div>
+    </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if clips is none %}
+  <div class="card">
+    <div class="section-title">Cómo funciona?</div>
+    <div class="steps">
+      <div class="step"><div class="step-num">1</div><div class="step-title">Pega la URL</div><div class="step-desc">Video de YouTube</div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-title">DeepSeek analiza</div><div class="step-desc">IA extrae clips</div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-title">Obtén los clips</div><div class="step-desc">Títulos y copy listos</div></div>
+    </div>
+  </div>
+  <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px">
+    <div class="clip-detail-label" style="margin-bottom:8px">¿Cómo obtener tu API Key de DeepSeek?</div>
+    <div class="clip-detail-text" style="line-height:1.8">
+      1. <a href="https://platform.deepseek.com" style="color:{{ accent }}">platform.deepseek.com</a><br>
+      2. Regístrate<br>
+      3. API Keys → Create<br>
+      4. Copia la llave <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:3px;font-size:12px">sk-...</code>
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="footer">
+    <strong>Cheka Clips Hub</strong> {{ channel.emoji }} {{ channel.name }}<br>
+    <span class="badge" title="{{ db_info }}">{% if use_turso %}☁️ Turso{% else %}💾 SQLite{% endif %}</span>
+  </div>
+</div>
+
+<script>
+function toggleBody(el) {
+  const body = el.closest('.clip-wrapper').querySelector('.clip-body')
+  body.classList.toggle('open')
+  el.innerHTML = body.classList.contains('open') ? '&#9650;' : '&#9660;'
+}
+</script>
+</body>
+</html>
