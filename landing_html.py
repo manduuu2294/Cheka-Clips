@@ -162,7 +162,7 @@ body.is-processing .btn{{cursor:progress}}
   .title{{font-size:clamp(2rem,3.6vw,3.4rem);max-width:480px;margin-bottom:18px}}
   .subtitle{{font-size:clamp(0.7rem,0.85vw,0.85rem);max-width:420px;margin-bottom:28px}}
   .vp-wrap{{max-width:640px}}
-  .clip-carousel{{width:clamp(150px,12vw,200px);height:clamp(400px,50vh,500px)}
+  .clip-carousel{{width:clamp(150px,12vw,200px);height:clamp(400px,50vh,500px)}}
 }}
 @media(max-width:960px){{
   .hero{{grid-template-columns:1fr;height:auto;min-height:100vh;gap:20px;padding:clamp(20px,4vw,32px) clamp(20px,4vw,32px)}}
