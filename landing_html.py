@@ -2,6 +2,7 @@ _RAW = "https://raw.githubusercontent.com/manduuu2294/Cheka-Clips/main/landing/a
 
 def render_landing() -> str:
     return f"""<div id="lr" style="position:fixed;inset:0;overflow:hidden;z-index:99999;background:#07070a;color:#fff;">
+<script>document.documentElement.classList.add('js');setTimeout(function(){{if(typeof gsap=='undefined')document.documentElement.classList.remove('js')}},2500)</script>
 <style>
 *,*::before,*::after{{margin:0;padding:0;box-sizing:border-box}}
 h1,h2,h3,h4,h5,h6,p,a,div,span{{font-family:inherit!important;font-size:inherit!important;font-weight:inherit!important;line-height:inherit!important;color:inherit!important}}
@@ -48,12 +49,12 @@ h1,h2,h3,h4,h5,h6,p,a,div,span{{font-family:inherit!important;font-size:inherit!
 .layout{{position:relative;z-index:2;display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;width:100%;background:transparent!important;background-image:none!important;box-shadow:none!important;backdrop-filter:none!important}}
 
 .left{{display:flex;flex-direction:column;justify-content:center;max-width:620px;padding:0 clamp(20px,2vw,40px)}}
-.logo{{font-size:clamp(1.1rem,1.2vw,1.3rem);font-weight:700;letter-spacing:-0.02em;color:rgba(255,255,255,0.15);margin-bottom:28px;opacity:0}}
+.logo{{font-size:clamp(1.1rem,1.2vw,1.3rem);font-weight:700;letter-spacing:-0.02em;color:rgba(255,255,255,0.15);margin-bottom:28px}}
 .logo-a{{color:var(--accent);font-weight:800}}
-.title{{font-size:clamp(2.4rem,4.4vw,4.2rem);font-weight:800;letter-spacing:-0.04em;line-height:0.92;max-width:580px;opacity:0;margin-bottom:24px}}
+.title{{font-size:clamp(2.4rem,4.4vw,4.2rem);font-weight:800;letter-spacing:-0.04em;line-height:0.92;max-width:580px;margin-bottom:24px}}
 .gradient-text{{background:linear-gradient(135deg,#A855F7,#d8b4fe);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}}
-.subtitle{{font-size:clamp(0.78rem,0.95vw,0.95rem);color:rgba(255,255,255,0.2);line-height:1.45;font-weight:500;max-width:520px;opacity:0;margin-bottom:36px}}
-.actions{{display:flex;align-items:center;gap:12px;opacity:0}}
+.subtitle{{font-size:clamp(0.78rem,0.95vw,0.95rem);color:rgba(255,255,255,0.2);line-height:1.45;font-weight:500;max-width:520px;margin-bottom:36px}}
+.actions{{display:flex;align-items:center;gap:12px}}
 
 .admin-top{{
   position:fixed;top:24px;right:32px;font-size:14px;font-weight:500;
@@ -85,7 +86,7 @@ h1,h2,h3,h4,h5,h6,p,a,div,span{{font-family:inherit!important;font-size:inherit!
 .btn-loading-text{{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);white-space:nowrap;font-size:clamp(0.8rem,0.9vw,1rem);font-weight:600;color:inherit;opacity:0;transition:opacity .3s var(--ease-out)}}
 
 .right{{display:flex;justify-content:center;align-items:center;width:100%;height:100%;background:transparent!important;background-image:none!important;box-shadow:none!important;backdrop-filter:none!important}}
-.scene{{display:flex;flex-direction:column;align-items:center;width:100%;gap:clamp(3px,0.4vh,6px);opacity:0;background:transparent!important;background-image:none!important;box-shadow:none!important;backdrop-filter:none!important}}
+.scene{{display:flex;flex-direction:column;align-items:center;width:100%;gap:clamp(3px,0.4vh,6px);background:transparent!important;background-image:none!important;box-shadow:none!important;backdrop-filter:none!important}}
 .hero-row{{display:flex;align-items:center;justify-content:center;width:100%;background:transparent!important;background-image:none!important;box-shadow:none!important;backdrop-filter:none!important}}
 .vp-wrap{{position:relative;width:100%;max-width:760px;padding:0;background:transparent!important;background-image:none!important;box-shadow:none!important;backdrop-filter:none!important}}
 .vp-shimmer{{position:absolute;top:0;left:-60%;width:60%;height:100%;z-index:2;pointer-events:none;background:linear-gradient(90deg,transparent 0%,rgba(168,85,247,0.06) 20%,rgba(168,85,247,0.25) 45%,rgba(255,255,255,0.12) 50%,rgba(168,85,247,0.25) 55%,rgba(168,85,247,0.06) 80%,transparent 100%);filter:blur(10px)}}
@@ -174,6 +175,7 @@ body.is-processing .btn{{cursor:progress}}
   .admin-top{{font-size:12px;padding:5px 10px;top:12px;right:12px}}
   .vp-wrap{{width:94vw}}
 }}
+.js .logo,.js .title,.js .subtitle,.js .actions,.js .scene{{opacity:0}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
