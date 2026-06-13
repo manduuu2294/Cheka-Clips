@@ -6,3 +6,4 @@ clips.json
 clips_performance.json
 transcripcion.*.vtt
 transcripcion.txt
+landing/node_modules/

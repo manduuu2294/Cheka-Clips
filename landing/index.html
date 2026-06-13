@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Cheka Clips</title>
+<meta name="description" content="Convierte videos largos en clips virales con IA">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css?v=18">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
+</head>
+<body>
+
+<main class="hero">
+  <div class="bg">
+    <div class="bg-orb"></div>
+    <div class="bg-orb bg-orb-2"></div>
+  </div>
+
+  <a href="http://localhost:8501?ch=admin_login" class="admin-top">Admin</a>
+  <div class="layout">
+    <div class="left">
+      <div class="logo">Cheka<span class="logo-a">_</span>Clips</div>
+
+      <h1 class="title">
+        Convierte videos<br>
+        en clips <span class="gradient-text">virales</span>
+      </h1>
+
+      <p class="subtitle">
+        IA que analiza videos, detecta momentos clave y genera timestamps, subtítulos y copys automáticamente.
+      </p>
+
+      <div class="actions">
+        <a href="http://localhost:8501?ch=general" class="btn btn-primary" data-action="clip">
+          <span class="btn-text-inner">Crear clip</span>
+          <svg class="btn-arrow" width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 10h12M11 5l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          <span class="btn-loading-text">Analizando...</span>
+        </a>
+      </div>
+
+    </div>
+
+    <div class="right">
+      <div class="scene" id="scene">
+
+        <div class="hero-row" id="heroRow">
+          <div class="vp-wrap" id="vpWrap">
+            <div class="vp-glow" id="vpGlow"></div>
+            <img src="assets/hero-video-scene.webp" alt="" class="vp-img" id="vpImg">
+            <div class="vp-shimmer" id="vpShimmer"></div>
+            <div class="vp-scanner" id="vpScanner"></div>
+            <div class="vp-play" id="vpPlay">
+              <div class="vp-play-icon">&#9654;</div>
+            </div>
+
+            <div class="tl-rail" id="tlRail">
+              <div class="tl-rail-line"></div>
+              <div class="tl-rail-node" data-i="0" style="--ny:18%"><div class="tl-rn-dot" id="rn0"></div></div>
+              <div class="tl-rail-node" data-i="1" style="--ny:50%"><div class="tl-rn-dot" id="rn1"></div></div>
+              <div class="tl-rail-node" data-i="2" style="--ny:82%"><div class="tl-rn-dot" id="rn2"></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="status" id="statusText">
+          <div class="status-row">
+            <span class="status-label">IA analizando momentos</span>
+            <span class="status-dots"><span>.</span><span>.</span><span>.</span></span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="clips-zone">
+      <div class="clip-carousel" id="clipCarousel">
+        <div class="cc-clip" data-i="0" data-color="red">
+          <div class="cc-preview">
+            <img src="assets/clip-1.webp" alt="" class="cc-img">
+            <div class="cc-flash"></div>
+            <div class="cc-badge">#Shorts</div>
+          </div>
+        </div>
+        <div class="cc-clip" data-i="1" data-color="cyan">
+          <div class="cc-preview">
+            <img src="assets/clip-2.webp" alt="" class="cc-img">
+            <div class="cc-flash"></div>
+            <div class="cc-badge">#Reels</div>
+          </div>
+        </div>
+        <div class="cc-clip" data-i="2" data-color="green">
+          <div class="cc-preview">
+            <img src="assets/clip-3.webp" alt="" class="cc-img">
+            <div class="cc-flash"></div>
+            <div class="cc-badge">TikTok</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="script.js"></script>
+</body>
+</html>

@@ -6,8 +6,9 @@ import json, importlib, traceback, streamlit as st
 import os  # debug
 from channels import get_channel, list_channels
 from database import init_db, save_analysis, get_analyses, get_analysis, update_analysis, delete_analysis, migrate_all_old_dbs, save_viral_clip, delete_viral_clip, get_viral_clips, get_analysis_by_video_id, _use_turso, _turso_debug
+from landing_html import render_landing
 
-st.set_page_config(page_title="Cheka Clips Hub", page_icon="🎬", layout="centered", initial_sidebar_state="expanded")
+st.set_page_config(page_title="Cheka Clips Hub", page_icon="🎬", layout="wide", initial_sidebar_state="expanded")
 
 for k in ("TURSO_DATABASE_URL", "TURSO_DATABASE_TOKEN"):
     try:
@@ -144,53 +145,8 @@ if channel_cfg is None:
                 st.query_params.clear()
                 st.rerun()
     else:
-        ch_cards = (
-            f'<a href="?ch=admin_login" class="ch-link" target="_self">'
-            f'<div class="ch-card" style="--accent:#1A1A1A">'
-            f'<div class="ct">Administrador</div>'
-            f'<div class="cd">Accede al panel de administración</div>'
-            f'</div></a>'
-        )
-        gen = get_channel("general")
-        ch_cards += (
-            f'<a href="?ch=general" class="ch-link" target="_self">'
-            f'<div class="ch-card" style="--accent:{ACCENTS["general"]}">'
-            f'<div class="ct">{gen["name"]}</div>'
-            f'<div class="cd">{gen["description"]}</div>'
-            f'</div></a>'
-        )
-        st.html(f"""
-        <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
-            * {{ font-family: 'Inter', sans-serif; }}
-            header[data-testid="stHeader"] {{ background: transparent !important; }}
-            [data-testid="stToolbar"] {{ display: none !important; }}
-            [data-testid="stAppDeployButton"], .stAppDeployButton, button[title="Deploy this app"], button[title="View app source"] {{ display: none !important; }}
-            .block-container {{ padding: 0 !important; max-width: 560px !important; width: 100%; }}
-            .stApp > .main {{ padding: 0 !important; }}
-            #landing {{ display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; gap: 0.5rem; min-height: 80vh; }}
-            .top-area {{ text-align: center; }}
-            .logo {{ font-size: 2.2rem; font-weight: 800; color: #1A1A1A; letter-spacing: -0.02em; }}
-            .logo .accent {{ color: #65A30D; }}
-            .sub {{ font-size: 0.85rem; color: #737373; margin-top: 0.15rem; }}
-            .ch-link {{ text-decoration: none !important; display: block; width: 100%; }}
-            .ch-card {{ background: #FFFFFF; border: 1px solid #D4D4D4; border-radius: 8px; padding: 1rem 1rem; transition: all 0.2s ease; cursor: pointer; border-left: 4px solid transparent; min-height: 90px; display: flex; flex-direction: column; justify-content: center; }}
-            .ch-link:hover .ch-card {{ background: #F5F5F5; border-color: var(--accent); border-left-color: var(--accent); box-shadow: 0 4px 12px rgba(0,0,0,0.08); }}
-            .ch-card .ct {{ font-weight: 700; font-size: 1rem; color: #1A1A1A; margin-bottom: 0.2rem; transition: color 0.2s ease; }}
-            .ch-link:hover .ch-card .ct {{ color: var(--accent); }}
-            .ch-card .cd {{ font-size: 0.78rem; color: #737373; line-height: 1.4; }}
-            .foot-note {{ text-align: center; padding: 1.5rem 0; color: #A3A3A3; font-size: 0.7rem; }}
-        </style>
-        <div id="landing">
-            <div class="top-area">
-                <div class="logo">Cheka<span class="accent">_</span>Clips</div>
-                <div class="sub">Selecciona un canal</div>
-            </div>
-            {ch_cards}
-            <div class="foot-note"><strong>Cheka Clips Hub</strong></div>
-        </div>
-        """)
-    st.stop()
+        st.html(render_landing())
+        st.stop()
 
 ACCENT = ACCENTS.get(st.session_state.channel, "#65A30D")
 
