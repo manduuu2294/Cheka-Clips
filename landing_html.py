@@ -1,17 +1,6 @@
-import base64
-from pathlib import Path
-
-_BASE = Path(__file__).parent / "landing" / "assets"
-
-def _b64(*parts: str) -> str:
-    return base64.b64encode((_BASE.joinpath(*parts)).read_bytes()).decode()
+_RAW = "https://raw.githubusercontent.com/manduuu2294/Cheka-Clips/main/landing/assets"
 
 def render_landing() -> str:
-    hero_img = _b64("hero-video-scene.webp")
-    clip1 = _b64("clip-1.webp")
-    clip2 = _b64("clip-2.webp")
-    clip3 = _b64("clip-3.webp")
-
     return f"""<style>
 *,*::before,*::after{{margin:0;padding:0;box-sizing:border-box}}
 h1,h2,h3,h4,h5,h6,p,a,div,span{{font-family:inherit!important;font-size:inherit!important;font-weight:inherit!important;line-height:inherit!important;color:inherit!important}}
@@ -229,7 +218,7 @@ body.is-processing .btn{{cursor:progress}}
         <div class="hero-row" id="heroRow">
           <div class="vp-wrap" id="vpWrap">
             <div class="vp-glow" id="vpGlow"></div>
-            <img src="data:image/webp;base64,{hero_img}" alt="" class="vp-img" id="vpImg">
+            <img src="{_RAW}/hero-video-scene.webp" alt="" class="vp-img" id="vpImg">
             <div class="vp-shimmer" id="vpShimmer"></div>
             <div class="vp-scanner" id="vpScanner"></div>
             <div class="vp-play" id="vpPlay">
@@ -259,21 +248,21 @@ body.is-processing .btn{{cursor:progress}}
       <div class="clip-carousel" id="clipCarousel">
         <div class="cc-clip" data-i="0" data-color="red">
           <div class="cc-preview">
-            <img src="data:image/webp;base64,{clip1}" alt="" class="cc-img">
+            <img src="{_RAW}/clip-1.webp" alt="" class="cc-img">
             <div class="cc-flash"></div>
             <div class="cc-badge">#Shorts</div>
           </div>
         </div>
         <div class="cc-clip" data-i="1" data-color="cyan">
           <div class="cc-preview">
-            <img src="data:image/webp;base64,{clip2}" alt="" class="cc-img">
+            <img src="{_RAW}/clip-2.webp" alt="" class="cc-img">
             <div class="cc-flash"></div>
             <div class="cc-badge">#Reels</div>
           </div>
         </div>
         <div class="cc-clip" data-i="2" data-color="green">
           <div class="cc-preview">
-            <img src="data:image/webp;base64,{clip3}" alt="" class="cc-img">
+            <img src="{_RAW}/clip-3.webp" alt="" class="cc-img">
             <div class="cc-flash"></div>
             <div class="cc-badge">TikTok</div>
           </div>
