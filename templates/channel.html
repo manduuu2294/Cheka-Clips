@@ -108,10 +108,10 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
       <div class="sidebar-title">Historial</div>
       {% if analyses %}
         {% for a in analyses %}
-        <div class="hist-item" onclick="window.location.href='/ch/{{ channel.id }}/analysis/{{ a.id }}{% if is_admin %}?admin=1{% endif %}'">
+        <div class="hist-item" onclick="window.location.href='/ch/{{ channel.id }}/analysis/{{ a.id }}{% if admin == '1' %}?admin=1{% endif %}'">
           <div class="hist-item-title">{{ a.video_title or 'Video' }}</div>
           <div class="hist-item-meta">{{ a.created_at[:19].replace('T',' ') }} &middot; {{ a.clip_count }} clips</div>
-          {% if is_admin %}
+          {% if admin == '1' %}
           <div class="hist-item-actions">
             <a href="/ch/{{ channel.id }}/analysis/{{ a.id }}/edit?admin=1" class="btn btn-secondary btn-small">Editar</a>
             <form method="POST" action="/ch/{{ channel.id }}/analysis/{{ a.id }}/delete?admin=1" style="display:inline" onsubmit="return confirm('¿Eliminar este análisis?')">
