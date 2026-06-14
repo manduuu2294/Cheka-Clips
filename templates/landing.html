@@ -14,16 +14,16 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 h1,h2,h3,h4,h5,h6,p,a,div,span{font-family:inherit!important;font-size:inherit!important;font-weight:inherit!important;line-height:inherit!important;color:inherit!important}
 
-:root{--bg:#07070a;--text:#fff;--accent:#A855F7;--cyan:#06B6D4;--font:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Oxygen,Ubuntu,Cantarell,'Helvetica Neue',Arial,sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1)}
+:root{--bg:#07070a;--text:#fff;--accent:#A855F7;--cyan:#06B6D4;--font:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;--ease-out:cubic-bezier(0.16,1,0.3,1)}
 
-html,body{height:100%;overflow:hidden;background:#07070a;color:#fff;font-family:var(--font);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+#lr{font-family:var(--font);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
 
 .bg{position:fixed;inset:0;z-index:0;pointer-events:none}
 .bg-orb{position:absolute;width:55vw;height:55vw;max-width:750px;max-height:750px;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,0.07),transparent 70%);top:-25%;right:0;animation:orb 35s ease-in-out infinite alternate}
 .bg-orb-2{width:40vw;height:40vw;max-width:550px;max-height:550px;background:radial-gradient(circle,rgba(6,182,212,0.04),transparent 70%);bottom:-20%;left:0;animation:orb 28s ease-in-out infinite alternate-reverse}
 @keyframes orb{0%{transform:translate(0,0) scale(1)}100%{transform:translate(15px,-25px) scale(1.04)}}
 
-.hero{position:relative;z-index:1;min-height:100vh;height:100vh;display:grid;grid-template-columns:40% 40% 20%;gap:24px;align-items:center;max-width:1600px;margin:0 auto;padding:0 clamp(16px,2vw,32px)}
+.hero{position:relative;z-index:1;min-height:100vh;height:100vh;display:grid;grid-template-columns:40% 40% 20%;gap:24px;align-items:center;max-width:1600px;margin:0 auto;padding:0 clamp(16px,2vw,32px);background:transparent!important;background-image:none!important;box-shadow:none!important;backdrop-filter:none!important}
 
 .layout{position:relative;z-index:2;display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:center;width:100%}
 
@@ -144,6 +144,7 @@ body.is-processing .btn{cursor:progress}
 </style>
 </head>
 <body>
+<div id="lr" style="position:fixed;inset:0;overflow:hidden;z-index:99999;background:#07070a;color:#fff;">
 
 <main class="hero">
   <div class="bg">
@@ -376,5 +377,6 @@ getBtn.addEventListener('click',async e=>{
 })
 })
 </script>
+</div>
 </body>
 </html>
