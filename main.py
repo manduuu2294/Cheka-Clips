@@ -158,13 +158,14 @@ async def analyze(
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request, admin: str = Query(None)):
-    is_admin = admin == "1" or request.cookies.get("admin") == "1"
-    if not is_admin:
-        return render("admin.html", error=None)
-    channels = [ch for ch in list_channels() if ch["id"] != "general"]
-    for ch in channels:
-        ch["analysis_count"] = len(get_analyses(channel=ch["id"]))
-    return render("admin_panel.html", channels=channels, accents=ACCENTS)
+    if admin == "1":
+        channels = [ch for ch in list_channels() if ch["id"] != "general"]
+        for ch in channels:
+            ch["analysis_count"] = len(get_analyses(channel=ch["id"]))
+        return render("admin_panel.html", channels=channels, accents=ACCENTS)
+    resp = render("admin.html", error=None)
+    resp.delete_cookie("admin")
+    return resp
 
 @app.post("/admin", response_class=HTMLResponse)
 async def admin_auth(request: Request, username: str = Form(...), password: str = Form(...)):
