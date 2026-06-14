@@ -89,7 +89,7 @@ async def channel_view(
         channel=cfg, accent=accent, is_admin=is_admin,
         analyses=analyses, db_info=db_info, use_turso=use_turso,
         clips=None, video_info={}, error=None, skip_processing=False,
-        viral_keys_set=set())
+        viral_keys_set=set(), admin=admin)
 
 @app.post("/ch/{channel_id}/analyze", response_class=HTMLResponse)
 async def analyze(
@@ -154,9 +154,8 @@ async def analyze(
         channel=cfg, accent=accent, is_admin=is_admin,
         analyses=analyses, db_info=db_info, use_turso=use_turso,
         clips=clips, video_info=video_info, error=error,
-        skip_processing=skip_processing, viral_keys_set=viral_keys_set)
-
-@app.get("/ch/{channel_id}/analysis/{analysis_id}", response_class=HTMLResponse)
+        skip_processing=skip_processing, viral_keys_set=viral_keys_set,
+        admin=admin)
 async def view_analysis(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):
     cfg = get_channel(channel_id)
     if not cfg:
@@ -173,7 +172,8 @@ async def view_analysis(request: Request, channel_id: str, analysis_id: int, adm
         channel=cfg, accent=accent, is_admin=is_admin,
         analyses=analyses, db_info=db_info, use_turso=use_turso,
         clips=an["clips"], video_info={"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]},
-        error=None, skip_processing=True, viral_keys_set=set())
+        error=None, skip_processing=True, viral_keys_set=set(),
+        admin=admin)
 
 @app.post("/ch/{channel_id}/analysis/{analysis_id}/delete", response_class=HTMLResponse)
 async def delete_analysis_route(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):

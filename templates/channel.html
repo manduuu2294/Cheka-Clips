@@ -98,7 +98,7 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 <div class="container">
   <div class="header">
     <div class="header-left">
-      <a href="{% if is_admin %}/admin?admin=1{% else %}/{% endif %}" class="header-back">&larr; {% if is_admin %}Panel admin{% else %}Inicio{% endif %}</a>
+      <a href="{% if admin == '1' %}/admin?admin=1{% else %}/{% endif %}" class="header-back">&larr; {% if admin == '1' %}Admin{% else %}Inicio{% endif %}</a>
       <div>
         <div class="header-title"><span class="header-accent">{{ channel.name }}</span></div>
         <div class="header-desc">{{ channel.description }}</div>
