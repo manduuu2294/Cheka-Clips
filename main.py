@@ -26,6 +26,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 _jinja_env = Environment(loader=FileSystemLoader("templates"), auto_reload=False)
 
+def _hex_to_rgb(hex_color: str) -> str:
+    h = hex_color.lstrip('#')
+    return f"{int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)}"
+
+_jinja_env.filters['hex_to_rgb'] = _hex_to_rgb
+
 def render(name: str, **context):
     t = _jinja_env.get_template(name)
     return HTMLResponse(t.render(context))
