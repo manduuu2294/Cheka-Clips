@@ -9,8 +9,8 @@
 body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
 
 .container{max-width:1400px;margin:0 auto;padding:24px 20px}
-.header{display:flex;align-items:center;margin-bottom:24px;gap:12px}
-.header-back{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.3);text-decoration:none;font-size:13px;font-weight:500;padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);transition:all .2s}
+.header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
+.header-back{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.3);text-decoration:none;font-size:13px;font-weight:500;padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);transition:all .2s;flex-shrink:0}
 .header-back:hover{color:#fff;border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.04)}
 .header-title{font-size:20px;font-weight:800;letter-spacing:-.02em}
 .header-accent{color:{{ accent }}}
@@ -96,11 +96,11 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 
 <div class="container">
   <div class="header">
-    <a href="{% if admin == '1' %}/admin?admin=1{% else %}/{% endif %}" class="header-back">&larr; {% if admin == '1' %}Admin{% else %}Inicio{% endif %}</a>
     <div>
       <div class="header-title"><span class="header-accent">{{ channel.name }}</span></div>
       <div class="header-desc">{{ channel.description }}</div>
     </div>
+    <a href="{% if admin == '1' %}/admin?admin=1{% else %}/{% endif %}" class="header-back">&larr; {% if admin == '1' %}Admin{% else %}Inicio{% endif %}</a>
   </div>
 
   <div class="layout">
