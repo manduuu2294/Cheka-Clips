@@ -8,7 +8,7 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh}
 
-.container{max-width:1200px;margin:0 auto;padding:24px 20px}
+.container{max-width:1400px;margin:0 auto;padding:24px 20px}
 .header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px}
 .header-left{display:flex;align-items:center;gap:12px}
 .header-back{color:rgba(255,255,255,0.4);text-decoration:none;font-size:14px;transition:color .2s}
@@ -17,6 +17,20 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 .header-accent{color:{{ accent }}}
 .header-desc{font-size:13px;color:rgba(255,255,255,0.25);margin-top:2px}
 
+.layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+.sidebar{position:sticky;top:24px}
+.sidebar-title{font-size:13px;font-weight:700;color:rgba(255,255,255,0.4);text-transform:uppercase;letter-spacing:.04em;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(255,255,255,0.06)}
+
+.hist-item{padding:10px 12px;border-radius:8px;transition:background .15s;margin-bottom:4px;cursor:pointer;text-decoration:none;display:block}
+.hist-item:hover{background:rgba(255,255,255,0.04)}
+.hist-item-title{font-size:13px;font-weight:600;color:rgba(255,255,255,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
+.hist-item-meta{font-size:11px;color:rgba(255,255,255,0.2);margin-top:2px;pointer-events:none}
+.hist-item-actions{display:flex;gap:6px;margin-top:6px}
+.hist-empty{font-size:13px;color:rgba(255,255,255,0.15);text-align:center;padding:24px 0}
+
+.main{min-width:0}
 .card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px;margin-bottom:16px}
 .form-group{margin-bottom:14px}
 .form-group label{display:block;font-size:12px;font-weight:600;color:rgba(255,255,255,0.3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px}
@@ -31,6 +45,8 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 .btn-secondary:hover{background:rgba(255,255,255,0.1);color:#fff}
 .btn-small{padding:6px 12px;font-size:12px}
 .btn-full{width:100%}
+.btn-danger{color:#ef4444}
+.btn-danger:hover{background:rgba(220,38,38,0.1);border-color:rgba(220,38,38,0.2);color:#ef4444}
 
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .metric{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;text-align:center}
@@ -82,7 +98,7 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 <div class="container">
   <div class="header">
     <div class="header-left">
-      <a href="/" class="header-back">&larr; Inicio</a>
+      <a href="{% if is_admin %}/admin?admin=1{% else %}/{% endif %}" class="header-back">&larr; {% if is_admin %}Panel admin{% else %}Inicio{% endif %}</a>
       <div>
         <div class="header-title"><span class="header-accent">{{ channel.name }}</span></div>
         <div class="header-desc">{{ channel.description }}</div>
@@ -90,131 +106,130 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
     </div>
   </div>
 
-  {% if error %}
-  <div class="error-msg">{{ error }}</div>
-  {% endif %}
-
-  <div class="card">
-    <form method="POST" action="/ch/{{ channel.id }}/analyze{% if is_admin %}?admin=1{% endif %}">
-      <div class="form-group">
-        <label>URL del video</label>
-        <input type="text" name="url" class="form-input" placeholder="https://www.youtube.com/watch?v=..." required>
-      </div>
-      <div class="form-group">
-        <label>DeepSeek API Key</label>
-        <input type="password" name="api_key" class="form-input" placeholder="sk-..." required>
-      </div>
-      <button type="submit" class="btn btn-primary btn-full">Extraer clips</button>
-    </form>
-  </div>
-
-  {% if clips is not none and clips|length > 0 %}
-  <div class="card">
-    <div class="section-label">Video</div>
-    <div class="video-info">
-      {% set vid = video_info.get('id','') %}
-      {% set thumb = "https://img.youtube.com/vi/"+vid+"/mqdefault.jpg" if vid else "" %}
-      {% if thumb %}<img src="{{ thumb }}" alt="" onerror="this.style.display='none'">{% endif %}
-      <div>
-        <div class="vi-title">{{ video_info.get('title','Video') }}</div>
-        <div class="vi-meta">{{ clips|length }} clips</div>
-      </div>
+  <div class="layout">
+    <div class="sidebar">
+      <div class="sidebar-title">Historial</div>
+      {% if analyses %}
+        {% for a in analyses %}
+        <div class="hist-item" onclick="window.location.href='/ch/{{ channel.id }}/analysis/{{ a.id }}{% if is_admin %}?admin=1{% endif %}'">
+          <div class="hist-item-title">{{ a.video_title or 'Video' }}</div>
+          <div class="hist-item-meta">{{ a.created_at[:19].replace('T',' ') }} &middot; {{ a.clip_count }} clips</div>
+          {% if is_admin %}
+          <div class="hist-item-actions">
+            <a href="/ch/{{ channel.id }}/analysis/{{ a.id }}/edit?admin=1" class="btn btn-secondary btn-small">Editar</a>
+            <form method="POST" action="/ch/{{ channel.id }}/analysis/{{ a.id }}/delete?admin=1" style="display:inline" onsubmit="return confirm('¿Eliminar este análisis?')">
+              <button type="submit" class="btn btn-secondary btn-small btn-danger">Eliminar</button>
+            </form>
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      {% else %}
+      <div class="hist-empty">Sin análisis previos</div>
+      {% endif %}
     </div>
-  </div>
 
-  {% set durs = clips|map(attribute='end')|list %}
-  {% set ad = 0 %}
-  <div class="metrics">
-    <div class="metric"><div class="metric-val">{{ clips|length }}</div><div class="metric-lbl">Clips</div></div>
-    <div class="metric"><div class="metric-val">{{ clips|length }}</div><div class="metric-lbl">Total</div></div>
-    <div class="metric"><div class="metric-val">{{ "%.0f"|format(clips|sum(attribute='confidence')/clips|length * 100) }}%</div><div class="metric-lbl">Score</div></div>
-  </div>
+    <div class="main">
+      {% if error %}
+      <div class="error-msg">{{ error }}</div>
+      {% endif %}
 
-  <div class="section-title">Mejores momentos</div>
-  {% for clip in clips %}
-    {% set start = clip.get('start','00:00:00') %}
-    {% set end = clip.get('end','00:00:00') %}
-    {% set tt = clip.get('title','Sin título') %}
-    {% set hook = clip.get('hook','') %}
-    {% set desc = clip.get('descripcion','') %}
-    {% set conf = clip.get('confidence',0) %}
-    {% set why = clip.get('why','') %}
-    {% set tc = clip.get('tiktok_copy','') %}
-    {% set tr = clip.get('transcripcion','') %}
-    {% set vk = vid ~ ':' ~ start ~ ':' ~ end %}
-    {% set is_viral = vk in viral_keys_set %}
-
-    <div class="clip-wrapper">
-      <div class="clip-header">
-        <span class="clip-num">#{{ loop.index }}</span>
-        <span class="clip-title">{{ tt }}</span>
-        <span class="clip-time">{{ start }}-{{ end }}</span>
-        {% set bg = "#16A34A" if conf >= 0.9 else "#D97706" if conf >= 0.75 else "#DC2626" %}
-        <span class="clip-badge" style="background:{{ bg }}">{{ "%.0f"|format(conf*100) }}%</span>
-        {% if is_viral %}
-        <span class="clip-badge" style="background:#16A34A">Viral</span>
-        {% endif %}
-        <span class="clip-toggle" onclick="toggleBody(this)">&#9660;</span>
-      </div>
-      <div class="clip-body">
-        {% if hook %}<div class="clip-detail"><div class="clip-detail-label">Hook</div><div class="clip-detail-text">"{{ hook }}"</div></div>{% endif %}
-        {% if desc %}<div class="clip-detail"><div class="clip-detail-label">Descripción</div><div class="clip-detail-text">{{ desc }}</div></div>{% endif %}
-        {% if why %}<div class="clip-detail"><div class="clip-detail-label">Por qué funciona</div><div class="clip-detail-text" style="color:#60a5fa">{{ why }}</div></div>{% endif %}
-        {% if tc %}<div class="clip-detail"><div class="clip-detail-label">TikTok Copy</div><div class="clip-detail-text" style="color:#d97706">{{ tc }}</div></div>{% endif %}
-        <div class="clip-detail"><div class="clip-detail-label">Copy</div><div class="clip-detail-text code">{{ tc or (tt + '\n\n"' + hook + '"\n\n') }}</div></div>
-        {% if tr %}<div class="clip-detail"><div class="clip-detail-label">Transcripción</div><div class="clip-detail-text">{{ tr }}</div></div>{% endif %}
-      </div>
-    </div>
-  {% endfor %}
-  {% endif %}
-
-  {% if clips is none %}
-  {% if analyses %}
-  <div class="section-title">Historial de análisis</div>
-  <div class="card" style="padding:12px">
-    {% for a in analyses %}
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)" class="analysis-row">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.video_title or 'Video' }}</div>
-        <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:2px">{{ a.created_at[:19].replace('T',' ') }} &middot; {{ a.clip_count }} clips</div>
-      </div>
-      <div style="display:flex;gap:6px;flex-shrink:0;margin-left:12px">
-        <a href="/ch/{{ channel.id }}/analysis/{{ a.id }}" class="btn btn-secondary btn-small">Ver</a>
-        {% if is_admin %}
-        <a href="/ch/{{ channel.id }}/analysis/{{ a.id }}/edit" class="btn btn-secondary btn-small">Editar</a>
-        <form method="POST" action="/ch/{{ channel.id }}/analysis/{{ a.id }}/delete" style="display:inline">
-          <button type="submit" class="btn btn-secondary btn-small" style="color:#ef4444" onclick="return confirm('¿Eliminar este análisis?')">Eliminar</button>
+      <div class="card">
+        <form method="POST" action="/ch/{{ channel.id }}/analyze{% if is_admin %}?admin=1{% endif %}">
+          <div class="form-group">
+            <label>URL del video</label>
+            <input type="text" name="url" class="form-input" placeholder="https://www.youtube.com/watch?v=..." required>
+          </div>
+          <div class="form-group">
+            <label>DeepSeek API Key</label>
+            <input type="password" name="api_key" class="form-input" placeholder="sk-..." required>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">Extraer clips</button>
         </form>
-        {% endif %}
+      </div>
+
+      {% if clips is not none and clips|length > 0 %}
+      <div class="card">
+        <div class="video-info">
+          {% set vid = video_info.get('id','') %}
+          {% set thumb = "https://img.youtube.com/vi/"+vid+"/mqdefault.jpg" if vid else "" %}
+          {% if thumb %}<img src="{{ thumb }}" alt="" onerror="this.style.display='none'">{% endif %}
+          <div>
+            <div class="vi-title">{{ video_info.get('title','Video') }}</div>
+            <div class="vi-meta">{{ clips|length }} clips</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="metrics">
+        <div class="metric"><div class="metric-val">{{ clips|length }}</div><div class="metric-lbl">Clips</div></div>
+        <div class="metric"><div class="metric-val">{{ clips|length }}</div><div class="metric-lbl">Total</div></div>
+        <div class="metric"><div class="metric-val">{{ "%.0f"|format(clips|sum(attribute='confidence')/clips|length * 100) }}%</div><div class="metric-lbl">Score</div></div>
+      </div>
+
+      <div class="section-title">Mejores momentos</div>
+      {% for clip in clips %}
+        {% set start = clip.get('start','00:00:00') %}
+        {% set end = clip.get('end','00:00:00') %}
+        {% set tt = clip.get('title','Sin título') %}
+        {% set hook = clip.get('hook','') %}
+        {% set desc = clip.get('descripcion','') %}
+        {% set conf = clip.get('confidence',0) %}
+        {% set why = clip.get('why','') %}
+        {% set tc = clip.get('tiktok_copy','') %}
+        {% set tr = clip.get('transcripcion','') %}
+        {% set vk = vid ~ ':' ~ start ~ ':' ~ end %}
+        {% set is_viral = vk in viral_keys_set %}
+
+        <div class="clip-wrapper">
+          <div class="clip-header">
+            <span class="clip-num">#{{ loop.index }}</span>
+            <span class="clip-title">{{ tt }}</span>
+            <span class="clip-time">{{ start }}-{{ end }}</span>
+            {% set bg = "#16A34A" if conf >= 0.9 else "#D97706" if conf >= 0.75 else "#DC2626" %}
+            <span class="clip-badge" style="background:{{ bg }}">{{ "%.0f"|format(conf*100) }}%</span>
+            {% if is_viral %}
+            <span class="clip-badge" style="background:#16A34A">Viral</span>
+            {% endif %}
+            <span class="clip-toggle" onclick="toggleBody(this)">&#9660;</span>
+          </div>
+          <div class="clip-body">
+            {% if hook %}<div class="clip-detail"><div class="clip-detail-label">Hook</div><div class="clip-detail-text">"{{ hook }}"</div></div>{% endif %}
+            {% if desc %}<div class="clip-detail"><div class="clip-detail-label">Descripción</div><div class="clip-detail-text">{{ desc }}</div></div>{% endif %}
+            {% if why %}<div class="clip-detail"><div class="clip-detail-label">Por qué funciona</div><div class="clip-detail-text" style="color:#60a5fa">{{ why }}</div></div>{% endif %}
+            {% if tc %}<div class="clip-detail"><div class="clip-detail-label">TikTok Copy</div><div class="clip-detail-text" style="color:#d97706">{{ tc }}</div></div>{% endif %}
+            <div class="clip-detail"><div class="clip-detail-label">Copy</div><div class="clip-detail-text code">{{ tc or (tt + '\n\n"' + hook + '"\n\n') }}</div></div>
+            {% if tr %}<div class="clip-detail"><div class="clip-detail-label">Transcripción</div><div class="clip-detail-text">{{ tr }}</div></div>{% endif %}
+          </div>
+        </div>
+      {% endfor %}
+      {% endif %}
+
+      {% if clips is none %}
+      <div class="card">
+        <div class="section-title">Cómo funciona?</div>
+        <div class="steps">
+          <div class="step"><div class="step-num">1</div><div class="step-title">Pega la URL</div><div class="step-desc">Video de YouTube</div></div>
+          <div class="step"><div class="step-num">2</div><div class="step-title">DeepSeek analiza</div><div class="step-desc">IA extrae clips</div></div>
+          <div class="step"><div class="step-num">3</div><div class="step-title">Obtén los clips</div><div class="step-desc">Títulos y copy listos</div></div>
+        </div>
+      </div>
+      <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px">
+        <div class="clip-detail-label" style="margin-bottom:8px">¿Cómo obtener tu API Key de DeepSeek?</div>
+        <div class="clip-detail-text" style="line-height:1.8">
+          1. <a href="https://platform.deepseek.com" style="color:{{ accent }}">platform.deepseek.com</a><br>
+          2. Regístrate<br>
+          3. API Keys → Create<br>
+          4. Copia la llave <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:3px;font-size:12px">sk-...</code>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="footer">
+        <strong>Cheka Clips Hub</strong> {{ channel.emoji }} {{ channel.name }}<br>
+        <span class="badge" title="{{ db_info }}">{% if use_turso %}☁️ Turso{% else %}💾 SQLite{% endif %}</span>
       </div>
     </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div style="font-size:13px;color:rgba(255,255,255,0.2);text-align:center;padding:12px">Sin análisis previos</div>
-  {% endif %}
-  <div class="card">
-    <div class="section-title">Cómo funciona?</div>
-    <div class="steps">
-      <div class="step"><div class="step-num">1</div><div class="step-title">Pega la URL</div><div class="step-desc">Video de YouTube</div></div>
-      <div class="step"><div class="step-num">2</div><div class="step-title">DeepSeek analiza</div><div class="step-desc">IA extrae clips</div></div>
-      <div class="step"><div class="step-num">3</div><div class="step-title">Obtén los clips</div><div class="step-desc">Títulos y copy listos</div></div>
-    </div>
-  </div>
-  <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px">
-    <div class="clip-detail-label" style="margin-bottom:8px">¿Cómo obtener tu API Key de DeepSeek?</div>
-    <div class="clip-detail-text" style="line-height:1.8">
-      1. <a href="https://platform.deepseek.com" style="color:{{ accent }}">platform.deepseek.com</a><br>
-      2. Regístrate<br>
-      3. API Keys → Create<br>
-      4. Copia la llave <code style="background:rgba(255,255,255,0.06);padding:1px 6px;border-radius:3px;font-size:12px">sk-...</code>
-    </div>
-  </div>
-  {% endif %}
-
-  <div class="footer">
-    <strong>Cheka Clips Hub</strong> {{ channel.emoji }} {{ channel.name }}<br>
-    <span class="badge" title="{{ db_info }}">{% if use_turso %}☁️ Turso{% else %}💾 SQLite{% endif %}</span>
   </div>
 </div>
 
