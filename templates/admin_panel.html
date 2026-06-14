@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Admin — Cheka Clips Hub</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+body{background:#07070a;color:#fff;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;padding:32px 24px}
+.admin-header{display:flex;align-items:center;justify-content:center;gap:8px;padding:0 0 24px 0;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:32px}
+.admin-badge{background:#16A34A;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:0.04em}
+.admin-msg{font-size:13px;color:rgba(255,255,255,0.4)}
+.ch-grid{display:flex;gap:10px;flex-wrap:wrap;max-width:900px;margin:0 auto;justify-content:center}
+.ch-card{flex:1;min-width:220px;max-width:320px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 20px;text-decoration:none;transition:all .25s ease;border-left:4px solid transparent;display:flex;flex-direction:column;justify-content:center}
+.ch-card:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.15);transform:translateY(-2px)}
+.ch-name{font-weight:700;font-size:16px;color:#fff;margin-bottom:4px}
+.ch-desc{font-size:13px;color:rgba(255,255,255,0.35);line-height:1.4}
+.ch-count{font-size:11px;color:rgba(255,255,255,0.2);margin-top:10px}
+.footer{text-align:center;padding:32px 0 0;color:rgba(255,255,255,0.12);font-size:11px;font-weight:600;letter-spacing:0.02em}
+.logout{display:block;text-align:center;margin-top:20px;color:rgba(255,255,255,0.2);font-size:13px;text-decoration:none;transition:color .2s}
+.logout:hover{color:rgba(255,255,255,0.5)}
+</style>
+</head>
+<body>
+<div class="admin-header">
+  <span class="admin-badge">ADMIN</span>
+  <span class="admin-msg">Has iniciado sesión como administrador</span>
+</div>
+<div class="ch-grid">
+{% for ch in channels %}
+  <a href="/ch/{{ ch.id }}?admin=1" class="ch-card" style="--accent:{{ accents.get(ch.id, '#A855F7') }}">
+    <div class="ch-name">{{ ch.name }}</div>
+    <div class="ch-desc">{{ ch.description }}</div>
+    <div class="ch-count">Análisis: {{ ch.analysis_count }}</div>
+  </a>
+{% endfor %}
+</div>
+<div class="footer">Cheka Clips Hub</div>
+<a href="/" class="logout">&larr; Cerrar sesión de administrador</a>
+</body>
+</html>

@@ -79,7 +79,7 @@ async def channel_view(
     if not cfg:
         return HTMLResponse("Canal no encontrado", status_code=404)
 
-    is_admin = admin == "1"
+    is_admin = admin == "1" or request.cookies.get("admin") == "1"
     accent = ACCENTS.get(channel_id, "#65A30D")
     analyses = get_analyses(channel=channel_id)
     db_info = _turso_debug()
@@ -102,8 +102,7 @@ async def analyze(
     cfg = get_channel(channel_id)
     if not cfg:
         return HTMLResponse("Canal no encontrado", status_code=404)
-
-    is_admin = admin == "1"
+    is_admin = admin == "1" or request.cookies.get("admin") == "1"
     accent = ACCENTS.get(channel_id, "#65A30D")
     error = None
     clips = []
@@ -158,8 +157,14 @@ async def analyze(
         skip_processing=skip_processing, viral_keys_set=viral_keys_set)
 
 @app.get("/admin", response_class=HTMLResponse)
-async def admin_login(request: Request):
-    return render("admin.html", error=None)
+async def admin_page(request: Request, admin: str = Query(None)):
+    is_admin = admin == "1" or request.cookies.get("admin") == "1"
+    if not is_admin:
+        return render("admin.html", error=None)
+    channels = [ch for ch in list_channels() if ch["id"] != "general"]
+    for ch in channels:
+        ch["analysis_count"] = len(get_analyses(channel=ch["id"]))
+    return render("admin_panel.html", channels=channels, accents=ACCENTS)
 
 @app.post("/admin", response_class=HTMLResponse)
 async def admin_auth(request: Request, username: str = Form(...), password: str = Form(...)):
@@ -167,7 +172,7 @@ async def admin_auth(request: Request, username: str = Form(...), password: str 
     if not user or not pwd:
         return render("admin.html", error="No hay credenciales configuradas")
     if username == user and password == pwd:
-        resp = RedirectResponse(url="/", status_code=302)
+        resp = RedirectResponse(url="/admin?admin=1", status_code=302)
         resp.set_cookie(key="admin", value="1", max_age=86400)
         return resp
     return render("admin.html", error="Credenciales incorrectas")
