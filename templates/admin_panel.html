@@ -7,9 +7,11 @@
 <style>
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 body{background:#07070a;color:#fff;font-family:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;min-height:100vh;padding:32px 24px}
-.admin-header{display:flex;align-items:center;justify-content:center;gap:8px;padding:0 0 24px 0;border-bottom:1px solid rgba(255,255,255,0.06);margin-bottom:32px}
-.admin-badge{background:#16A34A;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:0.04em}
-.admin-msg{font-size:13px;color:rgba(255,255,255,0.4)}
+.header{display:flex;align-items:center;gap:12px;margin-bottom:32px}
+.header-back{display:inline-flex;align-items:center;gap:6px;color:rgba(255,255,255,0.3);text-decoration:none;font-size:13px;font-weight:500;padding:6px 14px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);transition:all .2s}
+.header-back:hover{color:#fff;border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.04)}
+.header-badge{background:#16A34A;color:#fff;font-size:10px;font-weight:700;padding:3px 8px;border-radius:4px;letter-spacing:0.04em;line-height:1}
+.header-msg{font-size:13px;color:rgba(255,255,255,0.4)}
 .ch-grid{display:flex;gap:10px;flex-wrap:wrap;max-width:900px;margin:0 auto;justify-content:center}
 .ch-card{flex:1;min-width:220px;max-width:320px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px 20px;text-decoration:none;transition:all .25s ease;border-left:4px solid transparent;display:flex;flex-direction:column;justify-content:center}
 .ch-card:hover{background:rgba(255,255,255,0.06);border-color:rgba(255,255,255,0.15);transform:translateY(-2px)}
@@ -17,14 +19,13 @@ body{background:#07070a;color:#fff;font-family:'Plus Jakarta Sans',-apple-system
 .ch-desc{font-size:13px;color:rgba(255,255,255,0.35);line-height:1.4}
 .ch-count{font-size:11px;color:rgba(255,255,255,0.2);margin-top:10px}
 .footer{text-align:center;padding:32px 0 0;color:rgba(255,255,255,0.12);font-size:11px;font-weight:600;letter-spacing:0.02em}
-.logout{display:block;text-align:center;margin-top:20px;color:rgba(255,255,255,0.2);font-size:13px;text-decoration:none;transition:color .2s}
-.logout:hover{color:rgba(255,255,255,0.5)}
 </style>
 </head>
 <body>
-<div class="admin-header">
-  <span class="admin-badge">ADMIN</span>
-  <span class="admin-msg">Has iniciado sesión como administrador</span>
+<div class="header">
+  <a href="/" class="header-back">&larr; Inicio</a>
+  <span class="header-badge">ADMIN</span>
+  <span class="header-msg">Has iniciado sesión como administrador</span>
 </div>
 <div class="ch-grid">
 {% for ch in channels %}
@@ -36,6 +37,5 @@ body{background:#07070a;color:#fff;font-family:'Plus Jakarta Sans',-apple-system
 {% endfor %}
 </div>
 <div class="footer">Cheka Clips Hub</div>
-<a href="/" class="logout">&larr; Cerrar sesión de administrador</a>
 </body>
 </html>
