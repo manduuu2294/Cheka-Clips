@@ -1,5 +1,6 @@
 import os, json, re, traceback, importlib, asyncio, mimetypes
 mimetypes.add_type('image/webp', '.webp')
+mimetypes.add_type('font/woff2', '.woff2')
 from pathlib import Path
 from datetime import datetime
 from contextlib import asynccontextmanager
