@@ -169,6 +169,30 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
   {% endif %}
 
   {% if clips is none %}
+  {% if analyses %}
+  <div class="section-title">Historial de análisis</div>
+  <div class="card" style="padding:12px">
+    {% for a in analyses %}
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(255,255,255,0.06)" class="analysis-row">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:600;color:rgba(255,255,255,0.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.video_title or 'Video' }}</div>
+        <div style="font-size:11px;color:rgba(255,255,255,0.25);margin-top:2px">{{ a.created_at[:19].replace('T',' ') }} &middot; {{ a.clip_count }} clips</div>
+      </div>
+      <div style="display:flex;gap:6px;flex-shrink:0;margin-left:12px">
+        <a href="/ch/{{ channel.id }}/analysis/{{ a.id }}" class="btn btn-secondary btn-small">Ver</a>
+        {% if is_admin %}
+        <a href="/ch/{{ channel.id }}/analysis/{{ a.id }}/edit" class="btn btn-secondary btn-small">Editar</a>
+        <form method="POST" action="/ch/{{ channel.id }}/analysis/{{ a.id }}/delete" style="display:inline">
+          <button type="submit" class="btn btn-secondary btn-small" style="color:#ef4444" onclick="return confirm('¿Eliminar este análisis?')">Eliminar</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="font-size:13px;color:rgba(255,255,255,0.2);text-align:center;padding:12px">Sin análisis previos</div>
+  {% endif %}
   <div class="card">
     <div class="section-title">Cómo funciona?</div>
     <div class="steps">

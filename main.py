@@ -156,6 +156,33 @@ async def analyze(
         clips=clips, video_info=video_info, error=error,
         skip_processing=skip_processing, viral_keys_set=viral_keys_set)
 
+@app.get("/ch/{channel_id}/analysis/{analysis_id}", response_class=HTMLResponse)
+async def view_analysis(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):
+    cfg = get_channel(channel_id)
+    if not cfg:
+        return HTMLResponse("Canal no encontrado", status_code=404)
+    an = get_analysis(analysis_id)
+    if not an:
+        return HTMLResponse("Análisis no encontrado", status_code=404)
+    is_admin = admin == "1" or request.cookies.get("admin") == "1"
+    accent = ACCENTS.get(channel_id, "#65A30D")
+    analyses = get_analyses(channel=channel_id)
+    db_info = _turso_debug()
+    use_turso = _use_turso()
+    return render("channel.html",
+        channel=cfg, accent=accent, is_admin=is_admin,
+        analyses=analyses, db_info=db_info, use_turso=use_turso,
+        clips=an["clips"], video_info={"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]},
+        error=None, skip_processing=True, viral_keys_set=set())
+
+@app.post("/ch/{channel_id}/analysis/{analysis_id}/delete", response_class=HTMLResponse)
+async def delete_analysis_route(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):
+    is_admin = admin == "1" or request.cookies.get("admin") == "1"
+    if not is_admin:
+        return RedirectResponse(url=f"/ch/{channel_id}", status_code=302)
+    delete_analysis(analysis_id)
+    return RedirectResponse(url=f"/ch/{channel_id}", status_code=302)
+
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request, admin: str = Query(None)):
     if admin == "1":
