@@ -1,6 +1,9 @@
 import base64
 import os
+import re
 import tempfile
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 import yt_dlp
@@ -15,6 +18,21 @@ BOT_CHECK_HINT = (
 def _is_bot_check_error(error: Exception) -> bool:
     text = str(error).lower()
     return "not a bot" in text or "sign in to confirm" in text
+
+
+def _get_video_id(url: str) -> str:
+    patterns = [
+        r"(?:v=)([0-9A-Za-z_-]{11})",
+        r"(?:youtu\.be/)([0-9A-Za-z_-]{11})",
+        r"(?:embed/)([0-9A-Za-z_-]{11})",
+        r"(?:shorts/)([0-9A-Za-z_-]{11})",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+    match = re.search(r"([0-9A-Za-z_-]{11})", url)
+    return match.group(1) if match else ""
 
 
 def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
@@ -96,7 +114,52 @@ def _pick_language(available: dict, requested: str) -> str | None:
     return next(iter(available.keys()), None)
 
 
+def _candidate_langs(lang: str) -> list[str]:
+    result = []
+    for item in [lang, "es", "es-419", "es-US", "en", "en-US"]:
+        if item and item not in result:
+            result.append(item)
+    return result
+
+
+def _download_timedtext_vtt(url: str, lang: str, workdir: Path) -> Path | None:
+    video_id = _get_video_id(url)
+    if not video_id:
+        return None
+
+    headers = ydl_base_opts().get("http_headers", {})
+    for code in _candidate_langs(lang):
+        for kind in ("", "asr"):
+            params = {
+                "v": video_id,
+                "lang": code,
+                "fmt": "vtt",
+            }
+            if kind:
+                params["kind"] = kind
+            timedtext_url = "https://www.youtube.com/api/timedtext?" + urllib.parse.urlencode(params)
+            req = urllib.request.Request(timedtext_url, headers=headers)
+            try:
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    body = resp.read().decode("utf-8", errors="ignore")
+            except Exception:
+                continue
+
+            if "WEBVTT" not in body or "-->" not in body:
+                continue
+
+            out_path = workdir / f"transcripcion.{code}.vtt"
+            out_path.write_text(body, encoding="utf-8")
+            return out_path
+
+    return None
+
+
 def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
+    direct_vtt = _download_timedtext_vtt(url, lang, workdir)
+    if direct_vtt is not None:
+        return direct_vtt
+
     out_tpl = str(workdir / "transcripcion.%(ext)s")
     base_opts = ydl_base_opts(workdir, skip_download=True)
 
