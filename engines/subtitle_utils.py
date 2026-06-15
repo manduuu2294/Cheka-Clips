@@ -1,4 +1,5 @@
 import base64
+import gzip
 import os
 import re
 import tempfile
@@ -11,7 +12,7 @@ import yt_dlp
 
 BOT_CHECK_HINT = (
     "YouTube está pidiendo verificación anti-bot. Configura cookies de YouTube "
-    "en Railway usando YOUTUBE_COOKIES_BASE64 o YOUTUBE_COOKIES_CONTENT."
+    "en Railway usando YOUTUBE_COOKIES_GZIP_BASE64."
 )
 
 
@@ -41,8 +42,14 @@ def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
         return path
 
     raw = ""
+    gzip_encoded = os.environ.get("YOUTUBE_COOKIES_GZIP_BASE64", "").strip()
     encoded = os.environ.get("YOUTUBE_COOKIES_BASE64", "").strip()
-    if encoded:
+    if gzip_encoded:
+        try:
+            raw = gzip.decompress(base64.b64decode(gzip_encoded)).decode("utf-8")
+        except Exception as exc:
+            raise RuntimeError("YOUTUBE_COOKIES_GZIP_BASE64 no es un gzip+base64 válido.") from exc
+    elif encoded:
         try:
             raw = base64.b64decode(encoded).decode("utf-8")
         except Exception as exc:
