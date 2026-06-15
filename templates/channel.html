@@ -36,10 +36,23 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 .form-input{width:100%;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:12px 14px;color:#fff;font-size:14px;font-family:inherit;outline:none;transition:border-color .2s}
 .form-input:focus{border-color:{{ accent }}}
 .form-input::placeholder{color:rgba(255,255,255,0.15)}
+.analysis-card{position:relative;overflow:hidden}
+.analysis-card.is-loading{border-color:rgba(var(--accent-rgb),0.35);background:rgba(var(--accent-rgb),0.06)}
+.analysis-card.is-loading .form-input{opacity:.55;pointer-events:none}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:8px;font-family:inherit;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .2s;text-decoration:none}
 .btn-primary{background:{{ accent }};color:#fff}
 .btn-primary:hover{filter:brightness(1.1);transform:translateY(-1px)}
 .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+.btn-spinner{width:16px;height:16px;border:2px solid rgba(255,255,255,0.3);border-top-color:#fff;border-radius:50%;display:none;animation:spin .8s linear infinite}
+.btn.is-loading .btn-spinner{display:inline-block}
+.loading-panel{display:none;margin-top:14px;border-radius:8px;border:1px solid rgba(var(--accent-rgb),0.22);background:rgba(var(--accent-rgb),0.08);padding:12px 14px}
+.loading-panel.is-visible{display:block}
+.loading-title{font-size:13px;font-weight:700;color:#fff;margin-bottom:4px}
+.loading-copy{font-size:12px;color:rgba(255,255,255,0.45);line-height:1.4}
+.loading-bar{height:3px;border-radius:999px;background:rgba(255,255,255,0.08);overflow:hidden;margin-top:10px}
+.loading-bar span{display:block;width:38%;height:100%;border-radius:999px;background:{{ accent }};animation:loadingSlide 1.2s ease-in-out infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes loadingSlide{0%{transform:translateX(-110%)}100%{transform:translateX(280%)}}
 .btn-secondary{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.6);border:1px solid rgba(255,255,255,0.08)}
 .btn-secondary:hover{background:rgba(255,255,255,0.1);color:#fff}
 .btn-small{padding:6px 12px;font-size:12px}
@@ -138,8 +151,8 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
       <div class="notice-msg">{{ notice }}</div>
       {% endif %}
 
-      <div class="card">
-        <form method="POST" action="/ch/{{ channel.id }}/analyze{% if is_admin %}?admin=1{% endif %}">
+      <div class="card analysis-card" id="analysisCard">
+        <form method="POST" action="/ch/{{ channel.id }}/analyze{% if is_admin %}?admin=1{% endif %}" id="analysisForm">
           <div class="form-group">
             <label>URL del video</label>
             <input type="text" name="url" class="form-input" placeholder="https://www.youtube.com/watch?v=..." required>
@@ -148,7 +161,15 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
             <label>DeepSeek API Key</label>
             <input type="password" name="api_key" class="form-input" placeholder="sk-..." required>
           </div>
-          <button type="submit" class="btn btn-primary btn-full">Extraer clips</button>
+          <button type="submit" class="btn btn-primary btn-full" id="analysisSubmit">
+            <span class="btn-spinner" aria-hidden="true"></span>
+            <span data-idle-text>Extraer clips</span>
+          </button>
+          <div class="loading-panel" id="analysisLoading" role="status" aria-live="polite">
+            <div class="loading-title">Analizando video...</div>
+            <div class="loading-copy">Descargando subtítulos, detectando momentos clave y generando copys.</div>
+            <div class="loading-bar"><span></span></div>
+          </div>
         </form>
       </div>
 
@@ -261,6 +282,24 @@ function toggleBody(el) {
   const body = el.closest('.clip-wrapper').querySelector('.clip-body')
   body.classList.toggle('open')
   el.innerHTML = body.classList.contains('open') ? '&#9650;' : '&#9660;'
+}
+
+const analysisForm = document.getElementById('analysisForm')
+if (analysisForm) {
+  analysisForm.addEventListener('submit', function () {
+    const card = document.getElementById('analysisCard')
+    const button = document.getElementById('analysisSubmit')
+    const loading = document.getElementById('analysisLoading')
+    const label = button ? button.querySelector('[data-idle-text]') : null
+
+    if (card) card.classList.add('is-loading')
+    if (loading) loading.classList.add('is-visible')
+    if (button) {
+      button.disabled = true
+      button.classList.add('is-loading')
+    }
+    if (label) label.textContent = 'Analizando...'
+  })
 }
 </script>
 </body>
