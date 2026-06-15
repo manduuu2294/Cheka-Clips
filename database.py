@@ -373,6 +373,8 @@ def save_viral_clip(channel: str, video_id: str, video_title: str,
               title, hook, descripcion, transcript, confidence))
         conn.commit()
         ch = conn.execute("SELECT changes()").fetchone()
+        if isinstance(ch, dict):
+            return next(iter(ch.values()), 0) > 0
         return ch[0] > 0
     except Exception:
         return False
