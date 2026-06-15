@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Cheka Clips Hub</title>
+<link rel="preload" as="image" href="/static/assets/hero-video-scene-opt.webp" fetchpriority="high">
+<link rel="preload" as="image" href="/static/assets/clip-1-opt.webp">
+<link rel="preload" as="image" href="/static/assets/clip-2-opt.webp">
+<link rel="preload" as="image" href="/static/assets/clip-3-opt.webp">
+<link rel="prefetch" href="/ch/general">
 <script>document.documentElement.classList.add('js');setTimeout(function(){if(typeof gsap=='undefined')document.documentElement.classList.remove('js')},2500)</script>
 <style>
 @font-face{font-family:'Plus Jakarta Sans';font-style:normal;font-weight:400;font-display:swap;src:url(/static/fonts/pjs-400.woff2) format('woff2')}
@@ -82,7 +87,8 @@ html,body{color:#fff;background:#07070a;-webkit-font-smoothing:antialiased;-moz-
 .cc-clip.is-active[data-color="green"]{box-shadow:0 0 36px rgba(0,255,140,0.35),0 0 70px rgba(0,255,140,0.06)}
 .cc-clip.is-next{transform:translateY(calc(-50% + 60%)) scale(0.86);opacity:0.08;visibility:visible;filter:blur(6px) brightness(0.45);z-index:2;box-shadow:none}
 .cc-preview{position:absolute;inset:0;border-radius:12px;overflow:hidden}
-.cc-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block}
+.cc-preview::before{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(168,85,247,0.12),rgba(6,182,212,0.05));z-index:0}
+.cc-img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block;z-index:1}
 .cc-flash{position:absolute;inset:0;border-radius:12px;z-index:5;pointer-events:none;opacity:0;background:radial-gradient(ellipse at center,rgba(255,255,255,0.4),transparent 70%)}
 .cc-flash.impact{animation:ccFlash .35s var(--ease-out) forwards}
 @keyframes ccFlash{0%{opacity:0.55}100%{opacity:0}}
@@ -143,7 +149,7 @@ body.is-processing .btn{cursor:progress}
   .admin-top{font-size:12px;padding:5px 10px;top:12px;right:12px}
   .vp-wrap{width:94vw}
 }
-.js .logo,.js .title,.js .subtitle,.js .actions,.js .scene{opacity:0}
+.js .logo,.js .title,.js .subtitle,.js .actions{opacity:0}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -187,7 +193,7 @@ body.is-processing .btn{cursor:progress}
         <div class="hero-row" id="heroRow">
           <div class="vp-wrap" id="vpWrap">
             <div class="vp-glow" id="vpGlow"></div>
-            <img src="/static/assets/hero-video-scene.webp" alt="" class="vp-img" id="vpImg">
+            <img src="/static/assets/hero-video-scene-opt.webp" alt="" class="vp-img" id="vpImg" width="1200" height="800" fetchpriority="high" decoding="async">
             <div class="vp-shimmer" id="vpShimmer"></div>
             <div class="vp-scanner" id="vpScanner"></div>
             <div class="vp-play" id="vpPlay">
@@ -215,23 +221,23 @@ body.is-processing .btn{cursor:progress}
 
     <div class="clips-zone">
       <div class="clip-carousel" id="clipCarousel">
-        <div class="cc-clip" data-i="0" data-color="red">
+        <div class="cc-clip is-active" data-i="0" data-color="red">
           <div class="cc-preview">
-            <img src="/static/assets/clip-1.webp" alt="" class="cc-img">
+            <img src="/static/assets/clip-1-opt.webp" alt="" class="cc-img" width="520" height="924" loading="eager" decoding="async">
             <div class="cc-flash"></div>
             <div class="cc-badge">#Shorts</div>
           </div>
         </div>
-        <div class="cc-clip" data-i="1" data-color="cyan">
+        <div class="cc-clip is-next" data-i="1" data-color="cyan">
           <div class="cc-preview">
-            <img src="/static/assets/clip-2.webp" alt="" class="cc-img">
+            <img src="/static/assets/clip-2-opt.webp" alt="" class="cc-img" width="520" height="924" loading="eager" decoding="async">
             <div class="cc-flash"></div>
             <div class="cc-badge">#Reels</div>
           </div>
         </div>
-        <div class="cc-clip" data-i="2" data-color="green">
+        <div class="cc-clip is-prev" data-i="2" data-color="green">
           <div class="cc-preview">
-            <img src="/static/assets/clip-3.webp" alt="" class="cc-img">
+            <img src="/static/assets/clip-3-opt.webp" alt="" class="cc-img" width="520" height="924" loading="eager" decoding="async">
             <div class="cc-flash"></div>
             <div class="cc-badge">TikTok</div>
           </div>
@@ -244,6 +250,13 @@ body.is-processing .btn{cursor:progress}
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
 <script>
+window.addEventListener('pageshow', function(e){
+  document.body.classList.remove('is-processing')
+  const btn = document.querySelector('[data-action="clip"]')
+  if (btn) btn.classList.remove('is-loading')
+  if (e.persisted) window.location.reload()
+})
+
 document.addEventListener('DOMContentLoaded', function(){
 const getBtn = document.querySelector('[data-action="clip"]')
 const body = document.body
@@ -269,9 +282,9 @@ let activeIdx = 0
 let carouselTimer = null
 let isProcessing = false
 
-gsap.set([scene,title,subtitle,actions,logo,statusText],{autoAlpha:0})
-gsap.set(heroRow,{autoAlpha:0})
-gsap.set(vpWrap,{autoAlpha:0,scale:0.9})
+gsap.set([title,subtitle,actions,logo,statusText],{autoAlpha:0})
+gsap.set(heroRow,{autoAlpha:1})
+gsap.set(vpWrap,{autoAlpha:1,scale:1})
 gsap.set(vpGlow,{opacity:0})
 gsap.set(vpScanner,{left:'-3px',opacity:0})
 gsap.set(vpPlay,{scale:0.8,opacity:0})
@@ -376,10 +389,7 @@ getBtn.addEventListener('click',async e=>{
   e.preventDefault()
   scannerTL.pause();shimmerTL.pause();clipFloatTL.pause();stopCarousel()
   getBtn.classList.add('is-loading');body.classList.add('is-processing')
-  CLICK_TL.restart()
-  await new Promise(r=>setTimeout(r,700))
-  body.classList.remove('is-processing')
-  EXIT_TL.play()
+  window.location.href='/ch/general'
 })
 })
 </script>
