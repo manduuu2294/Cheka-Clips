@@ -134,7 +134,7 @@ def _render_channel(
 
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
-    return render("landing.html")
+    return render("landing.html", is_admin=_is_admin(request))
 
 @app.get("/ch/{channel_id}", response_class=HTMLResponse)
 async def channel_view(
