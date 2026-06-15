@@ -13,12 +13,16 @@ from database import (
     init_db, save_analysis, get_analyses, get_analysis,
     update_analysis, delete_analysis, save_viral_clip,
     delete_viral_clip, get_viral_clips, get_analysis_by_video_id,
-    _use_turso, _turso_debug
+    migrate_all_old_dbs, _use_turso, _turso_debug
 )
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    try:
+        migrate_all_old_dbs()
+    except Exception:
+        pass
     yield
 
 app = FastAPI(title="Cheka Clips Hub", lifespan=lifespan)
@@ -31,6 +35,14 @@ def _hex_to_rgb(hex_color: str) -> str:
     return f"{int(h[0:2],16)},{int(h[2:4],16)},{int(h[4:6],16)}"
 
 _jinja_env.filters['hex_to_rgb'] = _hex_to_rgb
+
+def _jinja_ts_to_sec(ts: str) -> int:
+    try:
+        return _ts_to_sec(ts or "0")
+    except Exception:
+        return 0
+
+_jinja_env.filters['ts_to_sec'] = _jinja_ts_to_sec
 
 def render(name: str, **context):
     t = _jinja_env.get_template(name)
@@ -71,6 +83,55 @@ def badge_pct(c):
     bg = "#16A34A" if c>=0.9 else "#D97706" if c>=0.75 else "#DC2626"
     return f'<span style="background:{bg};color:#fff;padding:0.04rem 0.4rem;font-weight:700;font-size:0.65rem">{sc_pct(c)}</span>'
 
+def _is_admin(request: Request, admin: str | None = None) -> bool:
+    return admin == "1" or request.cookies.get("admin") == "1"
+
+def _admin_query(is_admin: bool) -> str:
+    return "?admin=1" if is_admin else ""
+
+def _get_engine(cfg: dict):
+    em = importlib.import_module(f"engines.{cfg['engine']}")
+    importlib.reload(em)
+    return em
+
+def _viral_keys(channel_id: str) -> set[str]:
+    return {
+        f"{v['video_id']}:{int(v['clip_start'])}:{int(v['clip_end'])}"
+        for v in get_viral_clips(channel_id, limit=500)
+    }
+
+def _render_channel(
+    request: Request,
+    channel_id: str,
+    *,
+    admin: str | None = None,
+    clips=None,
+    video_info=None,
+    error: str | None = None,
+    skip_processing: bool = False,
+    current_analysis_id: int | None = None,
+    edit_mode: bool = False,
+    notice: str | None = None,
+):
+    cfg = get_channel(channel_id)
+    if not cfg:
+        return HTMLResponse("Canal no encontrado", status_code=404)
+
+    is_admin = _is_admin(request, admin)
+    accent = ACCENTS.get(channel_id, "#65A30D")
+    analyses = get_analyses(channel=channel_id)
+    db_info = _turso_debug()
+    use_turso = _use_turso()
+    viral_keys_set = _viral_keys(channel_id) if is_admin and clips else set()
+
+    return render("channel.html",
+        channel=cfg, accent=accent, is_admin=is_admin,
+        analyses=analyses, db_info=db_info, use_turso=use_turso,
+        clips=clips, video_info=video_info or {}, error=error,
+        skip_processing=skip_processing, viral_keys_set=viral_keys_set,
+        admin="1" if is_admin else admin, current_analysis_id=current_analysis_id,
+        edit_mode=edit_mode, notice=notice)
+
 @app.get("/", response_class=HTMLResponse)
 async def landing(request: Request):
     return render("landing.html")
@@ -81,21 +142,7 @@ async def channel_view(
     channel_id: str,
     admin: str = Query(None),
 ):
-    cfg = get_channel(channel_id)
-    if not cfg:
-        return HTMLResponse("Canal no encontrado", status_code=404)
-
-    is_admin = admin == "1" or request.cookies.get("admin") == "1"
-    accent = ACCENTS.get(channel_id, "#65A30D")
-    analyses = get_analyses(channel=channel_id)
-    db_info = _turso_debug()
-    use_turso = _use_turso()
-
-    return render("channel.html",
-        channel=cfg, accent=accent, is_admin=is_admin,
-        analyses=analyses, db_info=db_info, use_turso=use_turso,
-        clips=None, video_info={}, error=None, skip_processing=False,
-        viral_keys_set=set(), admin=admin)
+    return _render_channel(request, channel_id, admin=admin)
 
 @app.post("/ch/{channel_id}/analyze", response_class=HTMLResponse)
 async def analyze(
@@ -108,30 +155,26 @@ async def analyze(
     cfg = get_channel(channel_id)
     if not cfg:
         return HTMLResponse("Canal no encontrado", status_code=404)
-    is_admin = admin == "1" or request.cookies.get("admin") == "1"
-    accent = ACCENTS.get(channel_id, "#65A30D")
+    is_admin = _is_admin(request, admin)
     error = None
     clips = []
     video_info = {}
     skip_processing = False
+    analysis_id = None
 
     try:
-        em = importlib.import_module(f"engines.{cfg['engine']}")
-        importlib.reload(em)
+        em = _get_engine(cfg)
         ep = getattr(em, cfg["entry_point"])
         gid = getattr(em, "get_video_id", lambda x: "")
         gti = getattr(em, "get_video_title", lambda x: "")
         gdu = getattr(em, "get_video_duration", lambda x: 0)
-        t2s = getattr(em, "ts_to_seconds", lambda x: 0)
-        gcv_func = getattr(em, "generar_copy_viral", None)
 
         video_id = gid(url)
         if video_id:
             existente = get_analysis_by_video_id(channel_id, video_id)
             if existente:
-                clips = existente["clips"]
-                video_info = {"id": video_id, "title": existente["video_title"], "duration": 0}
-                skip_processing = True
+                target = f"/ch/{channel_id}/analysis/{existente['id']}{_admin_query(is_admin)}"
+                return RedirectResponse(url=target, status_code=303)
 
         if not skip_processing:
             virales = get_viral_clips(channel_id, limit=5) if is_admin else None
@@ -142,26 +185,26 @@ async def analyze(
             result = ep(url, api_key, lang="es", progress_callback=on_progress, viral_examples=virales)
             clips = result
             video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
+            if clips:
+                analysis_id = save_analysis(
+                    channel=channel_id,
+                    video_url=url,
+                    video_id=video_info.get("id", ""),
+                    video_title=video_info.get("title", ""),
+                    video_duration=video_info.get("duration", 0),
+                    clips=clips,
+                )
+                target = f"/ch/{channel_id}/analysis/{analysis_id}{_admin_query(is_admin)}"
+                return RedirectResponse(url=target, status_code=303)
 
     except Exception as e:
         error = f"{type(e).__name__}: {e}"
 
-    analyses = get_analyses(channel=channel_id)
-    db_info = _turso_debug()
-    use_turso = _use_turso()
+    return _render_channel(request, channel_id, admin=admin, clips=clips,
+        video_info=video_info, error=error, skip_processing=skip_processing,
+        current_analysis_id=analysis_id)
 
-    viral_clips_list = []
-    viral_keys_set = set()
-    if is_admin and clips:
-        viral_clips_list = get_viral_clips(channel_id, limit=500)
-        viral_keys_set = {f"{v['video_id']}:{int(v['clip_start'])}:{int(v['clip_end'])}" for v in viral_clips_list}
-
-    return render("channel.html",
-        channel=cfg, accent=accent, is_admin=is_admin,
-        analyses=analyses, db_info=db_info, use_turso=use_turso,
-        clips=clips, video_info=video_info, error=error,
-        skip_processing=skip_processing, viral_keys_set=viral_keys_set,
-        admin=admin)
+@app.get("/ch/{channel_id}/analysis/{analysis_id}", response_class=HTMLResponse)
 async def view_analysis(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):
     cfg = get_channel(channel_id)
     if not cfg:
@@ -169,29 +212,81 @@ async def view_analysis(request: Request, channel_id: str, analysis_id: int, adm
     an = get_analysis(analysis_id)
     if not an:
         return HTMLResponse("Análisis no encontrado", status_code=404)
-    is_admin = admin == "1" or request.cookies.get("admin") == "1"
-    accent = ACCENTS.get(channel_id, "#65A30D")
-    analyses = get_analyses(channel=channel_id)
-    db_info = _turso_debug()
-    use_turso = _use_turso()
-    return render("channel.html",
-        channel=cfg, accent=accent, is_admin=is_admin,
-        analyses=analyses, db_info=db_info, use_turso=use_turso,
-        clips=an["clips"], video_info={"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]},
-        error=None, skip_processing=True, viral_keys_set=set(),
-        admin=admin)
+    return _render_channel(request, channel_id, admin=admin,
+        clips=an["clips"],
+        video_info={"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]},
+        skip_processing=True, current_analysis_id=analysis_id)
+
+@app.get("/ch/{channel_id}/analysis/{analysis_id}/edit", response_class=HTMLResponse)
+async def edit_analysis(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):
+    if not _is_admin(request, admin):
+        return RedirectResponse(url=f"/ch/{channel_id}/analysis/{analysis_id}", status_code=302)
+    an = get_analysis(analysis_id)
+    if not an:
+        return HTMLResponse("Análisis no encontrado", status_code=404)
+    return _render_channel(request, channel_id, admin="1",
+        clips=an["clips"],
+        video_info={"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]},
+        skip_processing=True, current_analysis_id=analysis_id, edit_mode=True)
+
+@app.post("/ch/{channel_id}/analysis/{analysis_id}/clips/{clip_index}/delete", response_class=HTMLResponse)
+async def delete_clip_route(request: Request, channel_id: str, analysis_id: int, clip_index: int, admin: str = Query(None)):
+    if not _is_admin(request, admin):
+        return RedirectResponse(url=f"/ch/{channel_id}/analysis/{analysis_id}", status_code=302)
+    an = get_analysis(analysis_id)
+    if not an:
+        return HTMLResponse("Análisis no encontrado", status_code=404)
+    clips = list(an["clips"])
+    if 0 <= clip_index < len(clips):
+        del clips[clip_index]
+        update_analysis(analysis_id, clips)
+    return RedirectResponse(url=f"/ch/{channel_id}/analysis/{analysis_id}/edit?admin=1", status_code=303)
+
+@app.post("/ch/{channel_id}/analysis/{analysis_id}/clips/{clip_index}/viral", response_class=HTMLResponse)
+async def toggle_viral_clip_route(request: Request, channel_id: str, analysis_id: int, clip_index: int, admin: str = Query(None)):
+    if not _is_admin(request, admin):
+        return RedirectResponse(url=f"/ch/{channel_id}/analysis/{analysis_id}", status_code=302)
+    an = get_analysis(analysis_id)
+    if not an:
+        return HTMLResponse("Análisis no encontrado", status_code=404)
+    clips = an["clips"]
+    if not (0 <= clip_index < len(clips)):
+        return RedirectResponse(url=f"/ch/{channel_id}/analysis/{analysis_id}?admin=1", status_code=303)
+
+    clip = clips[clip_index]
+    video_id = an.get("video_id", "")
+    start = _ts_to_sec(clip.get("start", "0"))
+    end = _ts_to_sec(clip.get("end", "0"))
+    key = f"{video_id}:{start}:{end}"
+    if key in _viral_keys(channel_id):
+        delete_viral_clip(channel_id, video_id, start, end)
+    else:
+        save_viral_clip(
+            channel_id,
+            video_id,
+            an.get("video_title", ""),
+            start,
+            end,
+            clip.get("title", ""),
+            clip.get("hook", ""),
+            clip.get("descripcion", ""),
+            clip.get("transcripcion", ""),
+            clip.get("confidence", 0),
+        )
+    suffix = "/edit?admin=1" if request.headers.get("referer", "").endswith("/edit?admin=1") else "?admin=1"
+    return RedirectResponse(url=f"/ch/{channel_id}/analysis/{analysis_id}{suffix}", status_code=303)
 
 @app.post("/ch/{channel_id}/analysis/{analysis_id}/delete", response_class=HTMLResponse)
 async def delete_analysis_route(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):
-    is_admin = admin == "1" or request.cookies.get("admin") == "1"
+    is_admin = _is_admin(request, admin)
     if not is_admin:
         return RedirectResponse(url=f"/ch/{channel_id}", status_code=302)
     delete_analysis(analysis_id)
-    return RedirectResponse(url=f"/ch/{channel_id}", status_code=302)
+    return RedirectResponse(url=f"/ch/{channel_id}{_admin_query(is_admin)}", status_code=302)
 
 @app.get("/admin", response_class=HTMLResponse)
 async def admin_page(request: Request, admin: str = Query(None)):
-    if admin == "1":
+    if _is_admin(request, admin):
         channels = [ch for ch in list_channels() if ch["id"] != "general"]
         for ch in channels:
             ch["analysis_count"] = len(get_analyses(channel=ch["id"]))
