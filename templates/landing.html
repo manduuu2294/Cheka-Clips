@@ -37,6 +37,9 @@ html,body{color:#fff;background:#07070a;-webkit-font-smoothing:antialiased;-moz-
 
 .admin-top{position:fixed;top:24px;right:32px;font-size:14px;font-weight:500;color:rgba(255,255,255,0.24);text-decoration:none;padding:8px 16px;border-radius:8px;transition:all .3s var(--ease-out);z-index:100;letter-spacing:.02em;background:transparent}
 .admin-top:hover{color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.03)}
+.admin-top.is-active{color:#fff;background:rgba(168,85,247,0.18);border:1px solid rgba(168,85,247,0.35);box-shadow:0 0 32px rgba(168,85,247,0.16);font-weight:700}
+.admin-top.is-active:hover{background:rgba(168,85,247,0.28);border-color:rgba(168,85,247,0.55)}
+.admin-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent);margin-right:7px;box-shadow:0 0 16px rgba(168,85,247,0.8);vertical-align:1px}
 
 .btn-primary{display:inline-flex;align-items:center;gap:10px;padding:clamp(14px,1.6vh,20px) clamp(28px,2.8vw,38px);border-radius:100px;font-family:var(--font);font-size:clamp(0.9rem,1.1vw,1.15rem);font-weight:600;text-decoration:none;cursor:pointer;white-space:nowrap;position:relative;background:var(--accent);color:#fff;box-shadow:0 4px 30px rgba(168,85,247,0.3);transition:all .4s var(--ease-out);overflow:hidden;animation:ctaGlow 4s ease-in-out infinite}
 @keyframes ctaGlow{0%,100%{box-shadow:0 4px 30px rgba(168,85,247,0.3)}50%{box-shadow:0 4px 50px rgba(168,85,247,0.5),0 0 70px rgba(168,85,247,0.1)}}
@@ -155,7 +158,7 @@ body.is-processing .btn{cursor:progress}
     <div class="bg-orb bg-orb-2"></div>
   </div>
 
-  <a href="/admin" class="admin-top">Admin</a>
+  <a href="/admin" class="admin-top {% if is_admin %}is-active{% endif %}">{% if is_admin %}<span class="admin-dot"></span>Admin{% else %}Admin{% endif %}</a>
   <div class="layout">
     <div class="left">
       <div class="logo">Cheka<span class="logo-a">_</span>Clips</div>
