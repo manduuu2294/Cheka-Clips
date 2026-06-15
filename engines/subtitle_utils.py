@@ -1,6 +1,73 @@
+import base64
+import os
+import tempfile
 from pathlib import Path
 
 import yt_dlp
+
+
+BOT_CHECK_HINT = (
+    "YouTube está pidiendo verificación anti-bot. Configura cookies de YouTube "
+    "en Railway usando YOUTUBE_COOKIES_BASE64 o YOUTUBE_COOKIES_CONTENT."
+)
+
+
+def _is_bot_check_error(error: Exception) -> bool:
+    text = str(error).lower()
+    return "not a bot" in text or "sign in to confirm" in text
+
+
+def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
+    path = os.environ.get("YOUTUBE_COOKIES_PATH") or os.environ.get("YT_DLP_COOKIES_PATH")
+    if path and Path(path).exists():
+        return path
+
+    raw = ""
+    encoded = os.environ.get("YOUTUBE_COOKIES_BASE64", "").strip()
+    if encoded:
+        try:
+            raw = base64.b64decode(encoded).decode("utf-8")
+        except Exception as exc:
+            raise RuntimeError("YOUTUBE_COOKIES_BASE64 no es un base64 válido.") from exc
+    else:
+        raw = (
+            os.environ.get("YOUTUBE_COOKIES_CONTENT", "")
+            or os.environ.get("YOUTUBE_COOKIES", "")
+        )
+        raw = raw.replace("\\n", "\n")
+
+    if not raw.strip():
+        return None
+
+    target_dir = workdir if workdir is not None else Path(tempfile.gettempdir())
+    target = target_dir / "youtube_cookies.txt"
+    target.write_text(raw, encoding="utf-8")
+    return str(target)
+
+
+def ydl_base_opts(workdir: Path | None = None, **overrides) -> dict:
+    opts = {
+        "quiet": True,
+        "no_warnings": True,
+        "cachedir": False,
+        "extractor_args": {
+            "youtube": {
+                "player_client": ["android", "web"],
+            }
+        },
+        "http_headers": {
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/125.0.0.0 Safari/537.36"
+            )
+        },
+    }
+    cookiefile = _cookiefile_from_env(workdir)
+    if cookiefile:
+        opts["cookiefile"] = cookiefile
+    opts.update(overrides)
+    return opts
 
 
 def _lang_matches(key: str, wanted: str) -> bool:
@@ -31,16 +98,14 @@ def _pick_language(available: dict, requested: str) -> str | None:
 
 def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
     out_tpl = str(workdir / "transcripcion.%(ext)s")
-    base_opts = {
-        "skip_download": True,
-        "quiet": True,
-        "no_warnings": True,
-    }
+    base_opts = ydl_base_opts(workdir, skip_download=True)
 
     try:
         with yt_dlp.YoutubeDL(base_opts) as ydl:
             info = ydl.extract_info(url, download=False)
     except yt_dlp.utils.DownloadError as exc:
+        if _is_bot_check_error(exc):
+            raise RuntimeError(BOT_CHECK_HINT) from exc
         raise RuntimeError(f"No se pudo leer la información del video: {exc}") from exc
 
     sources = [
@@ -63,7 +128,9 @@ def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
-        except yt_dlp.utils.DownloadError:
+        except yt_dlp.utils.DownloadError as exc:
+            if _is_bot_check_error(exc):
+                raise RuntimeError(BOT_CHECK_HINT) from exc
             continue
 
         exact_path = workdir / f"transcripcion.{selected_lang}.vtt"

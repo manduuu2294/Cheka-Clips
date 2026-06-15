@@ -7,7 +7,7 @@ from textwrap import dedent
 
 import yt_dlp
 from langchain_openai import ChatOpenAI
-from engines.subtitle_utils import download_subtitles_vtt
+from engines.subtitle_utils import download_subtitles_vtt, ydl_base_opts
 
 MODEL = "deepseek-chat"
 DEEPSEEK_API_BASE = "https://api.deepseek.com"
@@ -47,15 +47,21 @@ def get_video_id(url: str) -> str:
 
 
 def get_video_title(url: str) -> str:
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
-        info = ydl.extract_info(url, download=False)
-        return info.get("title", "")
+    try:
+        with yt_dlp.YoutubeDL(ydl_base_opts()) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info.get("title", "")
+    except Exception:
+        return ""
 
 
 def get_video_duration(url: str) -> int:
-    with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
-        info = ydl.extract_info(url, download=False)
-        return info.get("duration", 0)
+    try:
+        with yt_dlp.YoutubeDL(ydl_base_opts()) as ydl:
+            info = ydl.extract_info(url, download=False)
+            return info.get("duration", 0)
+    except Exception:
+        return 0
 
 
 def vtt_to_txt(vtt_path: Path, out_path: Path) -> None:
