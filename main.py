@@ -306,6 +306,12 @@ async def admin_auth(request: Request, username: str = Form(...), password: str 
         return resp
     return render("admin.html", error="Credenciales incorrectas")
 
+@app.post("/admin/logout", response_class=HTMLResponse)
+async def admin_logout():
+    resp = RedirectResponse(url="/admin", status_code=302)
+    resp.delete_cookie("admin")
+    return resp
+
 @app.get("/api/analyses", response_class=HTMLResponse)
 async def get_analyses_api(channel: str = Query(None)):
     rows = get_analyses(channel=channel or "")
