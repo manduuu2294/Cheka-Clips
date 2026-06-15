@@ -149,7 +149,7 @@ body.is-processing .btn{cursor:progress}
   .admin-top{font-size:12px;padding:5px 10px;top:12px;right:12px}
   .vp-wrap{width:94vw}
 }
-.js .logo,.js .title,.js .subtitle,.js .actions,.js .scene{opacity:0}
+.js .logo,.js .title,.js .subtitle,.js .actions{opacity:0}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -221,21 +221,21 @@ body.is-processing .btn{cursor:progress}
 
     <div class="clips-zone">
       <div class="clip-carousel" id="clipCarousel">
-        <div class="cc-clip" data-i="0" data-color="red">
+        <div class="cc-clip is-active" data-i="0" data-color="red">
           <div class="cc-preview">
             <img src="/static/assets/clip-1-opt.webp" alt="" class="cc-img" width="520" height="924" loading="eager" decoding="async">
             <div class="cc-flash"></div>
             <div class="cc-badge">#Shorts</div>
           </div>
         </div>
-        <div class="cc-clip" data-i="1" data-color="cyan">
+        <div class="cc-clip is-next" data-i="1" data-color="cyan">
           <div class="cc-preview">
             <img src="/static/assets/clip-2-opt.webp" alt="" class="cc-img" width="520" height="924" loading="eager" decoding="async">
             <div class="cc-flash"></div>
             <div class="cc-badge">#Reels</div>
           </div>
         </div>
-        <div class="cc-clip" data-i="2" data-color="green">
+        <div class="cc-clip is-prev" data-i="2" data-color="green">
           <div class="cc-preview">
             <img src="/static/assets/clip-3-opt.webp" alt="" class="cc-img" width="520" height="924" loading="eager" decoding="async">
             <div class="cc-flash"></div>
@@ -250,6 +250,13 @@ body.is-processing .btn{cursor:progress}
 
 <script src="https://cdn.jsdelivr.net/npm/gsap@3/dist/gsap.min.js"></script>
 <script>
+window.addEventListener('pageshow', function(e){
+  document.body.classList.remove('is-processing')
+  const btn = document.querySelector('[data-action="clip"]')
+  if (btn) btn.classList.remove('is-loading')
+  if (e.persisted) window.location.reload()
+})
+
 document.addEventListener('DOMContentLoaded', function(){
 const getBtn = document.querySelector('[data-action="clip"]')
 const body = document.body
@@ -275,9 +282,9 @@ let activeIdx = 0
 let carouselTimer = null
 let isProcessing = false
 
-gsap.set([scene,title,subtitle,actions,logo,statusText],{autoAlpha:0})
-gsap.set(heroRow,{autoAlpha:0})
-gsap.set(vpWrap,{autoAlpha:0,scale:0.9})
+gsap.set([title,subtitle,actions,logo,statusText],{autoAlpha:0})
+gsap.set(heroRow,{autoAlpha:1})
+gsap.set(vpWrap,{autoAlpha:1,scale:1})
 gsap.set(vpGlow,{opacity:0})
 gsap.set(vpScanner,{left:'-3px',opacity:0})
 gsap.set(vpPlay,{scale:0.8,opacity:0})
@@ -382,10 +389,7 @@ getBtn.addEventListener('click',async e=>{
   e.preventDefault()
   scannerTL.pause();shimmerTL.pause();clipFloatTL.pause();stopCarousel()
   getBtn.classList.add('is-loading');body.classList.add('is-processing')
-  CLICK_TL.restart()
-  await new Promise(r=>setTimeout(r,120))
-  body.classList.remove('is-processing')
-  EXIT_TL.play()
+  window.location.href='/ch/general'
 })
 })
 </script>
