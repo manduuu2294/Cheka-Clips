@@ -7,6 +7,7 @@ from textwrap import dedent
 
 import yt_dlp
 from langchain_openai import ChatOpenAI
+from engines.subtitle_utils import download_subtitles_vtt
 
 MODEL = "deepseek-chat"
 DEEPSEEK_API_BASE = "https://api.deepseek.com"
@@ -55,30 +56,6 @@ def get_video_duration(url: str) -> int:
     with yt_dlp.YoutubeDL({"quiet": True, "no_warnings": True}) as ydl:
         info = ydl.extract_info(url, download=False)
         return info.get("duration", 0)
-
-
-def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
-    out_tpl = str(workdir / "transcripcion.%(ext)s")
-    ydl_opts = {
-        "skip_download": True,
-        "writeautomaticsub": True,
-        "subtitleslangs": [lang],
-        "outtmpl": out_tpl,
-        "quiet": True,
-        "no_warnings": True,
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            ydl.download([url])
-    except yt_dlp.utils.DownloadError:
-        pass
-    vtt_path = workdir / f"transcripcion.{lang}.vtt"
-    if vtt_path.exists():
-        return vtt_path
-    candidates = list(workdir.glob("transcripcion.*.vtt"))
-    if candidates:
-        return candidates[0]
-    raise RuntimeError(f"No se generaron subtítulos para '{lang}'")
 
 
 def vtt_to_txt(vtt_path: Path, out_path: Path) -> None:
