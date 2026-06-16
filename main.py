@@ -1,4 +1,4 @@
-import os, json, re, traceback, importlib, asyncio, mimetypes
+import os, json, re, traceback, importlib, inspect, asyncio, mimetypes
 mimetypes.add_type('image/webp', '.webp')
 mimetypes.add_type('font/woff2', '.woff2')
 from pathlib import Path
@@ -150,6 +150,7 @@ async def analyze(
     channel_id: str,
     url: str = Form(...),
     api_key: str = Form(...),
+    content_focus: str = Form(""),
     admin: str = Query(None),
 ):
     cfg = get_channel(channel_id)
@@ -182,7 +183,14 @@ async def analyze(
             def on_progress(pct, msg):
                 pass
 
-            result = ep(url, api_key, lang="es", progress_callback=on_progress, viral_examples=virales)
+            kwargs = {
+                "lang": "es",
+                "progress_callback": on_progress,
+                "viral_examples": virales,
+            }
+            if "content_focus" in inspect.signature(ep).parameters:
+                kwargs["content_focus"] = content_focus.strip()
+            result = ep(url, api_key, **kwargs)
             clips = result
             video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
             if clips:

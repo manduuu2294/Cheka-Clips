@@ -169,6 +169,12 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
             <label>DeepSeek API Key</label>
             <input type="password" name="api_key" class="form-input" placeholder="sk-..." required>
           </div>
+          {% if channel.id == 'general' %}
+          <div class="form-group">
+            <label>Enfoque opcional</label>
+            <input type="text" name="content_focus" class="form-input" placeholder="Ej: fútbol, anécdotas del jugador, polémicas, frases fuertes">
+          </div>
+          {% endif %}
           <button type="submit" class="btn btn-primary btn-full" id="analysisSubmit">
             <span class="btn-spinner" aria-hidden="true"></span>
             <span data-idle-text>Extraer clips</span>
