@@ -200,7 +200,8 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
         focus_section = f"""
     ENFOQUE DEL USUARIO:
     - Busca clips sobre: {content_focus.strip()}
-    - Si aparece contenido fuera de ese enfoque, descártalo aunque parezca llamativo.
+    - Usa este enfoque como prioridad editorial, no como una restricción rígida.
+    - Si aparece contenido claramente fuera de ese enfoque, descártalo aunque parezca llamativo.
     """
 
     prompt = dedent(f"""
@@ -209,7 +210,7 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
     Eres un editor general de clips virales.
     Extrae los momentos MÁS INTERESANTES, IMPACTANTES o ENTRETENIDOS del tema central del video.
 
-    No importa el tema (noticias, fútbol, cursos, política, tecnología, etc.).
+    No importa el tema (deportes, anime, películas, noticias, entrevistas, cursos, política, tecnología, farándula, etc.).
     Busca:
     - Momentos que llamen la atención en los primeros segundos
     - Datos curiosos, sorprendentes o polémicos
@@ -230,7 +231,8 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
     - Hook debe sonar natural, como si alguien lo dijera en conversación.
     - Precisión en tiempos.
     - Si el mejor momento del chunk es publicidad o relleno, devuelve [].
-    - Prioriza anécdotas, confesiones, polémicas, análisis, emociones fuertes o frases memorables.
+    - Prioriza momentos con conflicto, revelación, emoción, sorpresa, análisis claro, giro narrativo, humor, polémica o frases memorables.
+    - Adapta el criterio viral al tema: en deportes busca jugadas, decisiones, rivalidades o confesiones; en anime/películas busca teorías, escenas, giros o comparaciones; en noticias busca datos fuertes, consecuencias o debate.
 
     FORMATO JSON:
     [
