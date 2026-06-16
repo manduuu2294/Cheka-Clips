@@ -57,30 +57,35 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 .btn-secondary:hover{background:rgba(255,255,255,0.1);color:#fff}
 .btn-small{padding:6px 12px;font-size:12px}
 .btn-full{width:100%}
-.btn-danger{color:#ef4444}
-.btn-danger:hover{background:rgba(220,38,38,0.1);border-color:rgba(220,38,38,0.2);color:#ef4444}
-.btn-success{color:#22c55e}
-.btn-success:hover{background:rgba(34,197,94,0.1);border-color:rgba(34,197,94,0.2);color:#22c55e}
+.btn-danger{color:#fca5a5}
+.btn-danger:hover{background:rgba(255,255,255,0.08);border-color:rgba(255,255,255,0.14);color:#fff}
+.btn-success{color:rgba(255,255,255,0.82);background:rgba(255,255,255,0.08)}
+.btn-success:hover{background:rgba(255,255,255,0.12);border-color:rgba(255,255,255,0.16);color:#fff}
 .mode-pill{display:inline-flex;align-items:center;gap:6px;margin-bottom:12px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08);font-size:12px;font-weight:600;color:rgba(255,255,255,0.45)}
 
 .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
-.metric{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;text-align:center}
-.metric-val{font-size:22px;font-weight:800;color:#fff}
-.metric-lbl{font-size:11px;font-weight:600;color:rgba(168,85,247,0.5);text-transform:uppercase;margin-top:2px}
+.metric{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:12px;text-align:center}
+.metric-val{font-size:22px;font-weight:800;color:rgba(255,255,255,0.9)}
+.metric-lbl{font-size:11px;font-weight:600;color:rgba(255,255,255,0.32);text-transform:uppercase;margin-top:2px}
 
-.section-title{font-size:14px;font-weight:700;color:var(--accent);margin:20px 0 12px 0;text-transform:uppercase;letter-spacing:.05em}
+.section-title{font-size:13px;font-weight:700;color:rgba(255,255,255,0.72);margin:20px 0 12px 0;text-transform:uppercase;letter-spacing:.05em}
 
-.clip-wrapper{margin-bottom:8px}
-.clip-header{display:flex;align-items:center;gap:8px;padding:10px 14px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px 8px 0 0}
-.clip-num{background:rgba(168,85,247,0.12);color:#A855F7;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:700;flex-shrink:0}
-.clip-title{flex:1;font-size:13px;font-weight:500;color:rgba(255,255,255,0.85);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.clip-time{background:rgba(255,255,255,0.06);color:rgba(255,255,255,0.35);padding:2px 8px;border-radius:4px;font-size:11px;font-family:monospace;flex-shrink:0}
-.clip-badge{font-size:11px;font-weight:700;padding:2px 8px;border-radius:4px;flex-shrink:0}
+.clip-wrapper{margin-bottom:10px}
+.clip-header{display:grid;grid-template-columns:minmax(190px,auto) 1fr auto;align-items:center;gap:12px;padding:12px 14px;background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.075);border-radius:8px 8px 0 0}
+.clip-timebox{display:flex;align-items:center;gap:9px;min-width:0}
+.clip-num{color:rgba(255,255,255,0.35);font-size:12px;font-weight:800;flex-shrink:0}
+.clip-time{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:6px 10px;border-radius:6px;font-size:16px;font-family:'Courier New',monospace;font-weight:800;letter-spacing:.01em;white-space:nowrap;flex-shrink:0}
+.clip-main{min-width:0}
+.clip-title{font-size:13px;font-weight:600;color:rgba(255,255,255,0.78);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-bottom:3px}
+.clip-submeta{display:flex;align-items:center;gap:8px;color:rgba(255,255,255,0.32);font-size:11px;font-weight:600}
+.clip-actions{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.clip-badge{font-size:11px;font-weight:700;padding:3px 7px;border-radius:6px;flex-shrink:0;background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);color:rgba(255,255,255,0.56)}
+.clip-badge-viral{color:rgba(255,255,255,0.82)}
 
-.clip-body{border:1px solid rgba(255,255,255,0.08);border-top:none;border-radius:0 0 8px 8px;padding:14px;display:none}
+.clip-body{border:1px solid rgba(255,255,255,0.075);border-top:none;border-radius:0 0 8px 8px;padding:14px;display:none;background:rgba(255,255,255,0.012)}
 .clip-body.open{display:block}
-.clip-toggle{cursor:pointer;padding:8px;color:rgba(255,255,255,0.2);font-size:12px;transition:color .2s;flex-shrink:0}
-.clip-toggle:hover{color:rgba(255,255,255,0.5)}
+.clip-toggle{cursor:pointer;padding:6px 8px;color:rgba(255,255,255,0.35);font-size:12px;transition:all .2s;flex-shrink:0;border:1px solid rgba(255,255,255,0.08);border-radius:6px}
+.clip-toggle:hover{color:rgba(255,255,255,0.72);background:rgba(255,255,255,0.06)}
 
 .clip-detail{margin-bottom:10px}
 .clip-detail-label{font-size:10px;font-weight:600;color:rgba(255,255,255,0.2);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
@@ -104,6 +109,7 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 .error-msg{background:rgba(220,38,38,0.1);border:1px solid rgba(220,38,38,0.2);border-radius:8px;padding:14px;color:#ef4444;font-size:13px;margin-bottom:16px}
 .notice-msg{background:rgba(34,197,94,0.08);border:1px solid rgba(34,197,94,0.18);border-radius:8px;padding:14px;color:#86efac;font-size:13px;margin-bottom:16px}
 
+@media(max-width:760px){.clip-header{grid-template-columns:1fr;align-items:start}.clip-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.clip-time{font-size:15px}}
 @media(max-width:640px){.metrics,.steps{grid-template-columns:1fr}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -215,22 +221,30 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 
         <div class="clip-wrapper">
           <div class="clip-header">
-            <span class="clip-num">#{{ loop.index }}</span>
-            <span class="clip-title">{{ tt }}</span>
-            <span class="clip-time">{{ start }}-{{ end }}</span>
-            {% set bg = "#16A34A" if conf >= 0.9 else "#D97706" if conf >= 0.75 else "#DC2626" %}
-            <span class="clip-badge" style="background:{{ bg }}">{{ "%.0f"|format(conf*100) }}%</span>
-            {% if is_viral %}
-            <span class="clip-badge" style="background:#16A34A">Viral</span>
-            {% endif %}
-            {% if admin == '1' and current_analysis_id %}
-            <form method="POST" action="/ch/{{ channel.id }}/analysis/{{ current_analysis_id }}/clips/{{ loop.index0 }}/viral?admin=1" style="display:inline">
-              <button type="submit" class="btn btn-secondary btn-small {% if is_viral %}btn-success{% endif %}" title="{% if is_viral %}Desmarcar como viral{% else %}Marcar como viral{% endif %}">
-                {% if is_viral %}Viral{% else %}Marcar{% endif %}
-              </button>
-            </form>
-            {% endif %}
-            <span class="clip-toggle" onclick="toggleBody(this)">&#9660;</span>
+            <div class="clip-timebox">
+              <span class="clip-num">#{{ loop.index }}</span>
+              <span class="clip-time">{{ start }} - {{ end }}</span>
+            </div>
+            <div class="clip-main">
+              <div class="clip-title">{{ tt }}</div>
+              <div class="clip-submeta">
+                <span>Score {{ "%.0f"|format(conf*100) }}%</span>
+                {% if is_viral %}<span>Viral</span>{% endif %}
+              </div>
+            </div>
+            <div class="clip-actions">
+              {% if is_viral %}
+              <span class="clip-badge clip-badge-viral">Viral</span>
+              {% endif %}
+              {% if admin == '1' and current_analysis_id %}
+              <form method="POST" action="/ch/{{ channel.id }}/analysis/{{ current_analysis_id }}/clips/{{ loop.index0 }}/viral?admin=1" style="display:inline">
+                <button type="submit" class="btn btn-secondary btn-small {% if is_viral %}btn-success{% endif %}" title="{% if is_viral %}Desmarcar como viral{% else %}Marcar como viral{% endif %}">
+                  {% if is_viral %}Viral{% else %}Marcar{% endif %}
+                </button>
+              </form>
+              {% endif %}
+              <span class="clip-toggle" onclick="toggleBody(this)">&#9660;</span>
+            </div>
           </div>
           <div class="clip-body">
             {% if admin == '1' and edit_mode and current_analysis_id %}
