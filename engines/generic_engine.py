@@ -16,8 +16,8 @@ MAX_CLIPS_PER_CHUNK = 10
 MAX_FINAL_CLIPS = 50
 MAX_CHARS_PER_CHUNK = 10_000
 SKIP_FIRST_SECONDS = 0
-MIN_CLIP_DURATION_SEC = 30
-MAX_CLIP_DURATION_SEC = 90
+MIN_CLIP_DURATION_SEC = 45
+MAX_CLIP_DURATION_SEC = 120
 
 PROMO_KEYWORDS = (
     "sponsor", "patrocin", "auspici", "publicidad", "comercial", "promoción",
@@ -225,7 +225,8 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
     - Segmentos que no tratan el tema central del video.
 
     REGLAS:
-    - DURACIÓN: Mínimo 30 segundos, máximo 90 segundos.
+    - DURACIÓN: Mínimo 45 segundos, máximo 120 segundos.
+    - Duración ideal: 60 a 90 segundos cuando el tema necesite contexto.
     - El clip debe tener INICIO y CIERRE con sentido completo.
     - Cada clip debe ser AUTOCONTENIDO (entendible sin contexto previo).
     - Hook debe sonar natural, como si alguien lo dijera en conversación.

@@ -1,4 +1,4 @@
-import os, json, re, traceback, importlib, inspect, asyncio, mimetypes
+import os, json, re, traceback, importlib, inspect, secrets, asyncio, mimetypes
 mimetypes.add_type('image/webp', '.webp')
 mimetypes.add_type('font/woff2', '.woff2')
 from pathlib import Path
@@ -89,6 +89,13 @@ def _is_admin(request: Request, admin: str | None = None) -> bool:
 def _admin_query(is_admin: bool) -> str:
     return "?admin=1" if is_admin else ""
 
+def _result_query(is_admin: bool, view_token: str = "") -> str:
+    if is_admin:
+        return "?admin=1"
+    if view_token:
+        return f"?token={view_token}"
+    return ""
+
 def _get_engine(cfg: dict):
     em = importlib.import_module(f"engines.{cfg['engine']}")
     importlib.reload(em)
@@ -119,7 +126,7 @@ def _render_channel(
 
     is_admin = _is_admin(request, admin)
     accent = ACCENTS.get(channel_id, "#65A30D")
-    analyses = get_analyses(channel=channel_id)
+    analyses = get_analyses(channel=channel_id) if (is_admin or channel_id != "general") else []
     db_info = _turso_debug()
     use_turso = _use_turso()
     viral_keys_set = _viral_keys(channel_id) if is_admin and clips else set()
@@ -171,10 +178,10 @@ async def analyze(
         gdu = getattr(em, "get_video_duration", lambda x: 0)
 
         video_id = gid(url)
-        if video_id:
+        if video_id and (is_admin or channel_id != "general"):
             existente = get_analysis_by_video_id(channel_id, video_id)
             if existente:
-                target = f"/ch/{channel_id}/analysis/{existente['id']}{_admin_query(is_admin)}"
+                target = f"/ch/{channel_id}/analysis/{existente['id']}{_result_query(is_admin, existente.get('view_token', ''))}"
                 return RedirectResponse(url=target, status_code=303)
 
         if not skip_processing:
@@ -194,6 +201,7 @@ async def analyze(
             clips = result
             video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
             if clips:
+                view_token = secrets.token_urlsafe(24) if channel_id == "general" and not is_admin else ""
                 analysis_id = save_analysis(
                     channel=channel_id,
                     video_url=url,
@@ -201,8 +209,9 @@ async def analyze(
                     video_title=video_info.get("title", ""),
                     video_duration=video_info.get("duration", 0),
                     clips=clips,
+                    view_token=view_token,
                 )
-                target = f"/ch/{channel_id}/analysis/{analysis_id}{_admin_query(is_admin)}"
+                target = f"/ch/{channel_id}/analysis/{analysis_id}{_result_query(is_admin, view_token)}"
                 return RedirectResponse(url=target, status_code=303)
 
     except Exception as e:
@@ -213,13 +222,17 @@ async def analyze(
         current_analysis_id=analysis_id)
 
 @app.get("/ch/{channel_id}/analysis/{analysis_id}", response_class=HTMLResponse)
-async def view_analysis(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None)):
+async def view_analysis(request: Request, channel_id: str, analysis_id: int, admin: str = Query(None), token: str = Query("")):
     cfg = get_channel(channel_id)
     if not cfg:
         return HTMLResponse("Canal no encontrado", status_code=404)
     an = get_analysis(analysis_id)
     if not an:
         return HTMLResponse("Análisis no encontrado", status_code=404)
+    if channel_id == "general" and not _is_admin(request, admin):
+        expected = an.get("view_token") or ""
+        if not expected or not secrets.compare_digest(expected, token or ""):
+            return RedirectResponse(url=f"/ch/{channel_id}", status_code=302)
     return _render_channel(request, channel_id, admin=admin,
         clips=an["clips"],
         video_info={"id": an["video_id"], "title": an["video_title"], "duration": an["video_duration"]},
@@ -321,6 +334,8 @@ async def admin_logout():
     return resp
 
 @app.get("/api/analyses", response_class=HTMLResponse)
-async def get_analyses_api(channel: str = Query(None)):
+async def get_analyses_api(request: Request, channel: str = Query(None), admin: str = Query(None)):
+    if not _is_admin(request, admin):
+        raise HTTPException(status_code=403, detail="Admin requerido")
     rows = get_analyses(channel=channel or "")
     return HTMLResponse(json.dumps([dict(r) for r in rows], ensure_ascii=False), media_type="application/json")

@@ -164,11 +164,14 @@ def init_db():
             video_duration INTEGER DEFAULT 0,
             created_at TEXT NOT NULL,
             clip_count INTEGER DEFAULT 0,
+            view_token TEXT,
             clips_json TEXT
         )
     """)
     if not column_exists(conn, "analyses", "channel"):
         conn.execute("ALTER TABLE analyses ADD COLUMN channel TEXT NOT NULL DEFAULT ''")
+    if not column_exists(conn, "analyses", "view_token"):
+        conn.execute("ALTER TABLE analyses ADD COLUMN view_token TEXT")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS viral_clips (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -190,12 +193,12 @@ def init_db():
 
 
 def save_analysis(channel: str, video_url: str, video_id: str, video_title: str,
-                  video_duration: int, clips: list[dict]) -> int:
+                  video_duration: int, clips: list[dict], view_token: str = "") -> int:
     conn = _get_conn()
     cur = conn.execute("""
         INSERT INTO analyses (channel, video_url, video_id, video_title, video_duration,
-                              created_at, clip_count, clips_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                              created_at, clip_count, view_token, clips_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         channel,
         video_url,
@@ -204,6 +207,7 @@ def save_analysis(channel: str, video_url: str, video_id: str, video_title: str,
         video_duration or 0,
         datetime.now().isoformat(),
         len(clips),
+        view_token or "",
         json.dumps(clips, ensure_ascii=False),
     ))
     conn.commit()
@@ -243,7 +247,7 @@ def get_analysis(analysis_id: int) -> dict | None:
 def get_analysis_by_video_id(channel: str, video_id: str) -> dict | None:
     conn = _get_conn()
     row = conn.execute(
-        "SELECT id, channel, video_id, video_title, created_at, clip_count, clips_json FROM analyses WHERE channel = ? AND video_id = ? ORDER BY id DESC LIMIT 1",
+        "SELECT id, channel, video_id, video_title, created_at, clip_count, view_token, clips_json FROM analyses WHERE channel = ? AND video_id = ? ORDER BY id DESC LIMIT 1",
         (channel, video_id),
     ).fetchone()
     if row is None:
