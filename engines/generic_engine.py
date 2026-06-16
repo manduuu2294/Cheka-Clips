@@ -19,6 +19,15 @@ SKIP_FIRST_SECONDS = 0
 MIN_CLIP_DURATION_SEC = 30
 MAX_CLIP_DURATION_SEC = 90
 
+PROMO_KEYWORDS = (
+    "sponsor", "patrocin", "auspici", "publicidad", "comercial", "promoción",
+    "promocion", "código", "codigo", "descuento", "oferta", "link en la",
+    "link de la", "suscríbete", "suscribete", "dale like", "activa la campana",
+    "nuestro producto", "nuestra app", "fibra óptica", "fibra optica",
+    "plan de internet", "operador", "contrata", "compra ahora", "envío gratis",
+    "envio gratis", "visita nuestra web", "entra a nuestra web",
+)
+
 
 def ts_to_seconds(ts: str) -> int:
     parts = ts.strip().split(":")
@@ -163,8 +172,21 @@ def extract_json(text: str) -> str | None:
     return None
 
 
+def looks_like_promo(clip: dict) -> bool:
+    fields = [
+        clip.get("title", ""),
+        clip.get("hook", ""),
+        clip.get("descripcion", ""),
+        clip.get("why", ""),
+        clip.get("transcripcion", ""),
+    ]
+    text = " ".join(str(v) for v in fields).lower()
+    return any(k in text for k in PROMO_KEYWORDS)
+
+
 def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int = 10,
-                              viral_examples: list[dict] | None = None) -> list[dict]:
+                              viral_examples: list[dict] | None = None,
+                              content_focus: str = "") -> list[dict]:
     llm = ChatOpenAI(
         model=MODEL,
         openai_api_key=api_key,
@@ -173,18 +195,34 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
         max_tokens=4096,
     )
 
+    focus_section = ""
+    if content_focus.strip():
+        focus_section = f"""
+    ENFOQUE DEL USUARIO:
+    - Busca clips sobre: {content_focus.strip()}
+    - Usa este enfoque como prioridad editorial, no como una restricción rígida.
+    - Si aparece contenido claramente fuera de ese enfoque, descártalo aunque parezca llamativo.
+    """
+
     prompt = dedent(f"""
     DEVUELVE SOLO JSON. NO EXPLIQUES NADA. NO ESCRIBAS TEXTO.
 
     Eres un editor general de clips virales.
-    Extrae los momentos MÁS INTERESANTES, IMPACTANTES o ENTRETENIDOS del video.
+    Extrae los momentos MÁS INTERESANTES, IMPACTANTES o ENTRETENIDOS del tema central del video.
 
-    No importa el tema (noticias, fútbol, cursos, política, tecnología, etc.).
+    No importa el tema (deportes, anime, películas, noticias, entrevistas, cursos, política, tecnología, farándula, etc.).
     Busca:
     - Momentos que llamen la atención en los primeros segundos
     - Datos curiosos, sorprendentes o polémicos
     - Frases que generen debate o reacción
     - Contenido que alguien querría compartir
+{focus_section}
+    DESCARTA SIEMPRE:
+    - Comerciales, sponsors, auspicios, menciones de marcas o promos.
+    - Recomendaciones de productos, servicios, internet, apps, descuentos o códigos.
+    - Saludos largos, intro/outro, "suscríbete", "dale like" o anuncios del canal.
+    - Conversación logística sin valor viral: pruebas de audio, producción, agenda, pausas.
+    - Segmentos que no tratan el tema central del video.
 
     REGLAS:
     - DURACIÓN: Mínimo 30 segundos, máximo 90 segundos.
@@ -192,6 +230,9 @@ def generate_clips_from_chunk(transcripcion: str, api_key: str, max_clips: int =
     - Cada clip debe ser AUTOCONTENIDO (entendible sin contexto previo).
     - Hook debe sonar natural, como si alguien lo dijera en conversación.
     - Precisión en tiempos.
+    - Si el mejor momento del chunk es publicidad o relleno, devuelve [].
+    - Prioriza momentos con conflicto, revelación, emoción, sorpresa, análisis claro, giro narrativo, humor, polémica o frases memorables.
+    - Adapta el criterio viral al tema: en deportes busca jugadas, decisiones, rivalidades o confesiones; en anime/películas busca teorías, escenas, giros o comparaciones; en noticias busca datos fuertes, consecuencias o debate.
 
     FORMATO JSON:
     [
@@ -236,7 +277,8 @@ def validate_and_fix_clips(clips: list[dict]) -> list[dict]:
         duration = end_sec - start_sec
         if duration < MIN_CLIP_DURATION_SEC or duration > MAX_CLIP_DURATION_SEC:
             continue
-        valid.append(c)
+        if not looks_like_promo(c):
+            valid.append(c)
 
     seen_hooks: dict[str, dict] = {}
     for c in valid:
@@ -286,7 +328,8 @@ def add_transcripcion_to_clips(clips: list[dict], transcripcion: str) -> None:
 
 def extract_clips(youtube_url: str, api_key: str, lang: str = "es",
                   progress_callback=None,
-                  viral_examples: list[dict] | None = None) -> list[dict]:
+                  viral_examples: list[dict] | None = None,
+                  content_focus: str = "") -> list[dict]:
     with tempfile.TemporaryDirectory() as tmpdir:
         workdir = Path(tmpdir)
 
@@ -328,7 +371,12 @@ def extract_clips(youtube_url: str, api_key: str, lang: str = "es",
             pct = 20 + int((i / len(chunks)) * 60)
             if progress_callback:
                 progress_callback(pct, f"Trozo {i + 1}/{len(chunks)} — analizando...")
-            chunk_clips = generate_clips_from_chunk(chunk, api_key)
+            chunk_clips = generate_clips_from_chunk(
+                chunk,
+                api_key,
+                viral_examples=viral_examples,
+                content_focus=content_focus,
+            )
             all_clips.extend(chunk_clips)
 
         if progress_callback:
@@ -340,6 +388,7 @@ def extract_clips(youtube_url: str, api_key: str, lang: str = "es",
         if progress_callback:
             progress_callback(95, "Asociando transcripciones...")
         add_transcripcion_to_clips(clips, transcripcion)
+        clips = [c for c in clips if not looks_like_promo(c)]
 
         if progress_callback:
             progress_callback(100, f"¡Completado! {len(clips)} clips encontrados.")
