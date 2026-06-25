@@ -1,4 +1,6 @@
-import os, json, re, traceback, importlib, inspect, secrets, asyncio, mimetypes
+import os, json, re, traceback, importlib, inspect, secrets, asyncio, mimetypes, sys
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 mimetypes.add_type('image/webp', '.webp')
 mimetypes.add_type('font/woff2', '.woff2')
 from pathlib import Path
@@ -7,6 +9,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form, Query, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.concurrency import run_in_threadpool
 from jinja2 import Environment, FileSystemLoader
 from channels import get_channel, list_channels
 from database import (
@@ -197,7 +200,7 @@ async def analyze(
             }
             if "content_focus" in inspect.signature(ep).parameters:
                 kwargs["content_focus"] = content_focus.strip()
-            result = ep(url, api_key, **kwargs)
+            result = await run_in_threadpool(ep, url, api_key, **kwargs)
             clips = result
             video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
             if clips:
