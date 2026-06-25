@@ -58,6 +58,29 @@ def _bot_check_hint() -> str:
     return BOT_CHECK_WITH_COOKIES_HINT if _has_cookie_config() else BOT_CHECK_HINT
 
 
+def youtube_cookie_env_status() -> dict:
+    value = _env("YOUTUBE_COOKIES_GZIP_BASE64")
+    status = {
+        "present": bool(value),
+        "length": len(value),
+        "prefix": value[:5] if value else "",
+        "gzip_base64_valid": False,
+        "decoded_lines": 0,
+        "looks_like_netscape": False,
+        "error": "",
+    }
+    if not value:
+        return status
+    try:
+        raw = gzip.decompress(base64.b64decode(value, validate=True)).decode("utf-8", errors="ignore")
+        lines = [line for line in raw.splitlines() if line.strip()]
+        status["gzip_base64_valid"] = True
+        status["decoded_lines"] = len(lines)
+        status["looks_like_netscape"] = any("Netscape HTTP Cookie File" in line for line in lines[:5])
+    except Exception as exc:
+        status["error"] = f"{type(exc).__name__}: {exc}"
+    return status
+
 def _get_video_id(url: str) -> str:
     patterns = [
         r"(?:v=)([0-9A-Za-z_-]{11})",

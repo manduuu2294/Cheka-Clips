@@ -336,6 +336,14 @@ async def admin_logout():
     resp.delete_cookie("admin")
     return resp
 
+@app.get("/admin/youtube-cookies/status", response_class=HTMLResponse)
+async def youtube_cookies_status(request: Request, admin: str = Query(None)):
+    if not _is_admin(request, admin):
+        raise HTTPException(status_code=403, detail="Admin requerido")
+    from engines.subtitle_utils import youtube_cookie_env_status
+    payload = youtube_cookie_env_status()
+    payload["commit_hint"] = os.environ.get("RAILWAY_GIT_COMMIT_SHA", "")[:12]
+    return HTMLResponse(json.dumps(payload, ensure_ascii=False, indent=2), media_type="application/json")
 @app.get("/api/analyses", response_class=HTMLResponse)
 async def get_analyses_api(request: Request, channel: str = Query(None), admin: str = Query(None)):
     if not _is_admin(request, admin):
