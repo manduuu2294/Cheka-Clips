@@ -10,15 +10,52 @@ from pathlib import Path
 import yt_dlp
 
 
+COOKIE_ENV_NAMES = (
+    "YOUTUBE_COOKIES_GZIP_BASE64",
+    "YOUTUBE_COOKIES_BASE64",
+    "YOUTUBE_COOKIES_CONTENT",
+    "YOUTUBE_COOKIES",
+    "YOUTUBE_COOKIES_PATH",
+    "YT_DLP_COOKIES_PATH",
+)
+
 BOT_CHECK_HINT = (
-    "YouTube está pidiendo verificación anti-bot. Configura cookies de YouTube "
-    "en Railway usando YOUTUBE_COOKIES_GZIP_BASE64."
+    "YouTube está pidiendo verificación anti-bot y no hay cookies configuradas. "
+    "Configura YOUTUBE_COOKIES_GZIP_BASE64 en Railway."
+)
+
+BOT_CHECK_WITH_COOKIES_HINT = (
+    "YouTube está pidiendo verificación anti-bot aunque hay cookies configuradas. "
+    "Regenera YOUTUBE_COOKIES_GZIP_BASE64 con cookies recientes de una sesión de YouTube."
 )
 
 
 def _is_bot_check_error(error: Exception) -> bool:
     text = str(error).lower()
     return "not a bot" in text or "sign in to confirm" in text
+
+
+def _clean_env_value(value: str) -> str:
+    value = value.strip().strip('"').strip("'").strip()
+    for separator in ("=", " "):
+        prefix = f"YOUTUBE_COOKIES_GZIP_BASE64{separator}"
+        if value.startswith(prefix):
+            value = value[len(prefix):].strip().strip('"').strip("'").strip()
+    if value.startswith("export YOUTUBE_COOKIES_GZIP_BASE64="):
+        value = value.split("=", 1)[1].strip().strip('"').strip("'").strip()
+    return "".join(value.split())
+
+
+def _env(name: str) -> str:
+    return _clean_env_value(os.environ.get(name, ""))
+
+
+def _has_cookie_config() -> bool:
+    return any(_env(name) for name in COOKIE_ENV_NAMES)
+
+
+def _bot_check_hint() -> str:
+    return BOT_CHECK_WITH_COOKIES_HINT if _has_cookie_config() else BOT_CHECK_HINT
 
 
 def _get_video_id(url: str) -> str:
@@ -42,8 +79,8 @@ def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
         return path
 
     raw = ""
-    gzip_encoded = os.environ.get("YOUTUBE_COOKIES_GZIP_BASE64", "").strip()
-    encoded = os.environ.get("YOUTUBE_COOKIES_BASE64", "").strip()
+    gzip_encoded = _env("YOUTUBE_COOKIES_GZIP_BASE64")
+    encoded = _env("YOUTUBE_COOKIES_BASE64")
     if gzip_encoded:
         try:
             raw = gzip.decompress(base64.b64decode(gzip_encoded)).decode("utf-8")
@@ -70,6 +107,39 @@ def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
     return str(target)
 
 
+def _cookie_header_from_file(cookiefile: str | None) -> str:
+    if not cookiefile:
+        return ""
+
+    pairs = []
+    try:
+        lines = Path(cookiefile).read_text(encoding="utf-8", errors="ignore").splitlines()
+    except OSError:
+        return ""
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        if line.startswith("#HttpOnly_"):
+            line = line.removeprefix("#HttpOnly_")
+        elif line.startswith("#"):
+            continue
+
+        parts = line.split("\t")
+        if len(parts) < 7:
+            continue
+
+        domain, _, _, _, _, name, value = parts[:7]
+        if "youtube.com" not in domain and "google.com" not in domain:
+            continue
+        if not name or value is None:
+            continue
+        pairs.append(f"{name}={value}")
+
+    return "; ".join(pairs)
+
+
 def ydl_base_opts(workdir: Path | None = None, **overrides) -> dict:
     opts = {
         "quiet": True,
@@ -93,6 +163,15 @@ def ydl_base_opts(workdir: Path | None = None, **overrides) -> dict:
         opts["cookiefile"] = cookiefile
     opts.update(overrides)
     return opts
+
+
+def timedtext_headers(workdir: Path | None = None) -> dict:
+    opts = ydl_base_opts(workdir)
+    headers = dict(opts.get("http_headers", {}))
+    cookie_header = _cookie_header_from_file(opts.get("cookiefile"))
+    if cookie_header:
+        headers["Cookie"] = cookie_header
+    return headers
 
 
 def _lang_matches(key: str, wanted: str) -> bool:
@@ -134,7 +213,7 @@ def _download_timedtext_vtt(url: str, lang: str, workdir: Path) -> Path | None:
     if not video_id:
         return None
 
-    headers = ydl_base_opts().get("http_headers", {})
+    headers = timedtext_headers(workdir)
     for code in _candidate_langs(lang):
         for kind in ("", "asr"):
             params = {
@@ -175,7 +254,7 @@ def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
             info = ydl.extract_info(url, download=False)
     except yt_dlp.utils.DownloadError as exc:
         if _is_bot_check_error(exc):
-            raise RuntimeError(BOT_CHECK_HINT) from exc
+            raise RuntimeError(_bot_check_hint()) from exc
         raise RuntimeError(f"No se pudo leer la información del video: {exc}") from exc
 
     sources = [
@@ -200,7 +279,7 @@ def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
                 ydl.download([url])
         except yt_dlp.utils.DownloadError as exc:
             if _is_bot_check_error(exc):
-                raise RuntimeError(BOT_CHECK_HINT) from exc
+                raise RuntimeError(_bot_check_hint()) from exc
             continue
 
         exact_path = workdir / f"transcripcion.{selected_lang}.vtt"
