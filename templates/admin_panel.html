@@ -22,10 +22,10 @@ body{background:#07070a;color:#fff;font-family:'Plus Jakarta Sans',-apple-system
 .admin-copy{font-size:14px;color:rgba(255,255,255,0.42);line-height:1.5;max-width:620px}
 .ch-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
 .ch-card{background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:20px;text-decoration:none;transition:all .25s ease;border-left:4px solid var(--accent);display:flex;flex-direction:column;justify-content:center;min-height:128px}
-.ch-card:hover{background:rgba(168,85,247,0.08);border-color:rgba(168,85,247,0.26);transform:translateY(-2px);box-shadow:0 14px 45px rgba(168,85,247,0.08)}
+.ch-card:hover{background:rgba(var(--accent-rgb),0.08);border-color:rgba(var(--accent-rgb),0.28);transform:translateY(-2px);box-shadow:0 14px 45px rgba(var(--accent-rgb),0.10)}
 .ch-name{font-weight:800;font-size:17px;color:#fff;margin-bottom:5px}
 .ch-desc{font-size:13px;color:rgba(255,255,255,0.42);line-height:1.45}
-.ch-count{font-size:11px;color:rgba(168,85,247,0.8);margin-top:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em}
+.ch-count{font-size:11px;color:var(--accent);margin-top:12px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em}
 .footer{text-align:center;padding:32px 0 0;color:rgba(255,255,255,0.12);font-size:11px;font-weight:600;letter-spacing:0.02em}
 @media(max-width:640px){body{padding:20px 16px}.header{align-items:stretch;flex-direction:column}.header-back,.logout-btn{width:100%}.admin-title{font-size:24px}}
 </style>
@@ -48,7 +48,7 @@ body{background:#07070a;color:#fff;font-family:'Plus Jakarta Sans',-apple-system
 </div>
 <div class="ch-grid">
 {% for ch in channels %}
-  <a href="/ch/{{ ch.id }}?admin=1" class="ch-card" style="--accent:{{ accents.get(ch.id, '#A855F7') }}">
+  <a href="/ch/{{ ch.id }}?admin=1" class="ch-card" style="--accent:{{ accents.get(ch.id, '#A855F7') }};--accent-rgb:{{ accents.get(ch.id, '#A855F7')|hex_to_rgb }}">
     <div class="ch-name">{{ ch.name }}</div>
     <div class="ch-desc">{{ ch.description }}</div>
     <div class="ch-count">Análisis: {{ ch.analysis_count }}</div>
