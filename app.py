@@ -10,7 +10,16 @@ from landing_html import render_landing
 
 st.set_page_config(page_title="Cheka Clips Hub", page_icon="🎬", layout="wide", initial_sidebar_state="expanded")
 
-for k in ("TURSO_DATABASE_URL", "TURSO_DATABASE_TOKEN"):
+for k in (
+    "TURSO_DATABASE_URL",
+    "TURSO_DATABASE_TOKEN",
+    "YOUTUBE_COOKIES_GZIP_BASE64",
+    "YOUTUBE_COOKIES_BASE64",
+    "YOUTUBE_COOKIES_CONTENT",
+    "YOUTUBE_COOKIES",
+    "YOUTUBE_COOKIES_PATH",
+    "YT_DLP_COOKIES_PATH",
+):
     try:
         if k in st.secrets and st.secrets[k]:
             os.environ[k] = st.secrets[k]

@@ -3,6 +3,7 @@ import gzip
 import os
 import re
 import tempfile
+import time
 import urllib.parse
 import urllib.request
 from pathlib import Path
@@ -23,10 +24,11 @@ BOT_CHECK_HINT = (
     "YouTube está pidiendo verificación anti-bot y no hay cookies configuradas. "
     "Configura YOUTUBE_COOKIES_GZIP_BASE64 en Railway."
 )
-
 BOT_CHECK_WITH_COOKIES_HINT = (
     "YouTube está pidiendo verificación anti-bot aunque hay cookies configuradas. "
-    "Regenera YOUTUBE_COOKIES_GZIP_BASE64 con cookies recientes de una sesión de YouTube."
+    "Las cookies cargadas no fueron aceptadas por YouTube; normalmente están vencidas, "
+    "son de otra cuenta/sesión o no incluyen dominios de youtube.com/google.com. "
+    "Regenera YOUTUBE_COOKIES_GZIP_BASE64 con cookies recientes de una sesión activa."
 )
 
 
@@ -54,8 +56,8 @@ def _has_cookie_config() -> bool:
     return any(_env(name) for name in COOKIE_ENV_NAMES)
 
 
-def _bot_check_hint() -> str:
-    return BOT_CHECK_WITH_COOKIES_HINT if _has_cookie_config() else BOT_CHECK_HINT
+def _bot_check_hint(cookiefile: str | None = None) -> str:
+    return BOT_CHECK_WITH_COOKIES_HINT if cookiefile or _has_cookie_config() else BOT_CHECK_HINT
 
 
 def youtube_cookie_env_status() -> dict:
@@ -77,9 +79,11 @@ def youtube_cookie_env_status() -> dict:
         status["gzip_base64_valid"] = True
         status["decoded_lines"] = len(lines)
         status["looks_like_netscape"] = any("Netscape HTTP Cookie File" in line for line in lines[:5])
+        _validate_cookie_text(raw)
     except Exception as exc:
         status["error"] = f"{type(exc).__name__}: {exc}"
     return status
+
 
 def _get_video_id(url: str) -> str:
     patterns = [
@@ -94,6 +98,60 @@ def _get_video_id(url: str) -> str:
             return match.group(1)
     match = re.search(r"([0-9A-Za-z_-]{11})", url)
     return match.group(1) if match else ""
+
+
+def _is_cookie_comment(line: str) -> bool:
+    stripped = line.lstrip()
+    return stripped.startswith("#") and not stripped.startswith("#HttpOnly_")
+
+
+def _cookie_domain(parts: list[str]) -> str:
+    return parts[0].removeprefix("#HttpOnly_")
+
+
+def _validate_cookie_text(raw: str) -> None:
+    cookie_lines = [
+        line for line in raw.splitlines()
+        if line.strip() and not _is_cookie_comment(line)
+    ]
+    if not cookie_lines:
+        raise RuntimeError("La variable de cookies de YouTube está vacía.")
+
+    parsed = []
+    for line in cookie_lines:
+        parts = line.split("\t")
+        if len(parts) >= 7:
+            parsed.append(parts)
+    if not parsed:
+        raise RuntimeError(
+            "Las cookies de YouTube no tienen formato Netscape. Exporta cookies.txt "
+            "y vuelve a generar YOUTUBE_COOKIES_GZIP_BASE64."
+        )
+
+    youtube_rows = [
+        parts for parts in parsed
+        if "youtube.com" in _cookie_domain(parts).lower()
+        or "google.com" in _cookie_domain(parts).lower()
+    ]
+    if not youtube_rows:
+        raise RuntimeError(
+            "Las cookies configuradas no contienen dominios de youtube.com/google.com."
+        )
+
+    now = int(time.time())
+    live_rows = []
+    for parts in youtube_rows:
+        try:
+            expires = int(parts[4])
+        except ValueError:
+            continue
+        if expires == 0 or expires > now:
+            live_rows.append(parts)
+    if not live_rows:
+        raise RuntimeError(
+            "Las cookies configuradas para YouTube/Google están vencidas. "
+            "Regenera YOUTUBE_COOKIES_GZIP_BASE64 con cookies recientes."
+        )
 
 
 def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
@@ -119,10 +177,11 @@ def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
             os.environ.get("YOUTUBE_COOKIES_CONTENT", "")
             or os.environ.get("YOUTUBE_COOKIES", "")
         )
-        raw = raw.replace("\\n", "\n")
+    raw = raw.replace("\\n", "\n").strip()
 
-    if not raw.strip():
+    if not raw:
         return None
+    _validate_cookie_text(raw)
 
     target_dir = workdir if workdir is not None else Path(tempfile.gettempdir())
     target = target_dir / "youtube_cookies.txt"
@@ -133,33 +192,31 @@ def _cookiefile_from_env(workdir: Path | None = None) -> str | None:
 def _cookie_header_from_file(cookiefile: str | None) -> str:
     if not cookiefile:
         return ""
-
-    pairs = []
     try:
         lines = Path(cookiefile).read_text(encoding="utf-8", errors="ignore").splitlines()
     except OSError:
         return ""
 
+    pairs = []
     for line in lines:
-        line = line.strip()
-        if not line:
+        if not line.strip() or _is_cookie_comment(line):
             continue
-        if line.startswith("#HttpOnly_"):
-            line = line.removeprefix("#HttpOnly_")
-        elif line.startswith("#"):
-            continue
-
         parts = line.split("\t")
         if len(parts) < 7:
             continue
-
-        domain, _, _, _, _, name, value = parts[:7]
-        if "youtube.com" not in domain and "google.com" not in domain:
+        domain, _, path, _, expires, name, value = parts[:7]
+        domain = domain.removeprefix("#HttpOnly_")
+        domain_l = domain.lower()
+        if "youtube.com" not in domain_l and "google.com" not in domain_l:
             continue
-        if not name or value is None:
+        try:
+            expires_i = int(expires)
+        except ValueError:
+            expires_i = 0
+        if expires_i and expires_i <= int(time.time()):
             continue
-        pairs.append(f"{name}={value}")
-
+        if path and name and value:
+            pairs.append(f"{name}={value}")
     return "; ".join(pairs)
 
 
@@ -277,7 +334,7 @@ def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
             info = ydl.extract_info(url, download=False)
     except yt_dlp.utils.DownloadError as exc:
         if _is_bot_check_error(exc):
-            raise RuntimeError(_bot_check_hint()) from exc
+            raise RuntimeError(_bot_check_hint(base_opts.get("cookiefile"))) from exc
         raise RuntimeError(f"No se pudo leer la información del video: {exc}") from exc
 
     sources = [
@@ -302,7 +359,7 @@ def download_subtitles_vtt(url: str, lang: str, workdir: Path) -> Path:
                 ydl.download([url])
         except yt_dlp.utils.DownloadError as exc:
             if _is_bot_check_error(exc):
-                raise RuntimeError(_bot_check_hint()) from exc
+                raise RuntimeError(_bot_check_hint(base_opts.get("cookiefile"))) from exc
             continue
 
         exact_path = workdir / f"transcripcion.{selected_lang}.vtt"
