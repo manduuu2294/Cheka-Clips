@@ -48,7 +48,7 @@ def render(name: str, **context):
     t = _jinja_env.get_template(name)
     return HTMLResponse(t.render(context))
 
-ACCENTS = {"antauro_tv": "#65A30D", "deepskill": "#2563EB", "general": "#A855F7"}
+ACCENTS = {"antauro_tv": "#65A30D", "deepskill": "#2563EB", "chino_kachito": "#DC2626", "general": "#A855F7"}
 
 _ADMIN_USER = os.environ.get("ADMIN_USERNAME", "")
 _ADMIN_PASS = os.environ.get("ADMIN_PASSWORD", "")
