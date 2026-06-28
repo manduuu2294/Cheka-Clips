@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.concurrency import run_in_threadpool
 from jinja2 import Environment, FileSystemLoader
 from channels import get_channel, list_channels
+from engines.subtitle_utils import get_video_metadata
 from database import (
     init_db, save_analysis, get_analyses, get_analysis,
     update_analysis, delete_analysis, save_viral_clip,
@@ -46,6 +47,18 @@ def _jinja_ts_to_sec(ts: str) -> int:
         return 0
 
 _jinja_env.filters['ts_to_sec'] = _jinja_ts_to_sec
+
+def _format_history_date(value: str) -> str:
+    if not value:
+        return "Fecha no disponible"
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        months = ("ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic")
+        return f"{parsed.day} {months[parsed.month - 1]} {parsed.year}"
+    except (TypeError, ValueError):
+        return value[:10]
+
+_jinja_env.filters['history_date'] = _format_history_date
 
 def render(name: str, **context):
     t = _jinja_env.get_template(name)
@@ -177,8 +190,6 @@ async def analyze(
         em = _get_engine(cfg)
         ep = getattr(em, cfg["entry_point"])
         gid = getattr(em, "get_video_id", lambda x: "")
-        gti = getattr(em, "get_video_title", lambda x: "")
-        gdu = getattr(em, "get_video_duration", lambda x: 0)
 
         video_id = gid(url)
         if video_id and (is_admin or channel_id != "general"):
@@ -202,7 +213,12 @@ async def analyze(
                 kwargs["content_focus"] = content_focus.strip()
             result = await run_in_threadpool(ep, url, api_key, **kwargs)
             clips = result
-            video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url)}
+            try:
+                video_info = await run_in_threadpool(get_video_metadata, url)
+            except Exception:
+                gti = getattr(em, "get_video_title", lambda x: "")
+                gdu = getattr(em, "get_video_duration", lambda x: 0)
+                video_info = {"id": gid(url), "title": gti(url), "duration": gdu(url), "published_at": ""}
             if clips:
                 view_token = secrets.token_urlsafe(24) if channel_id == "general" and not is_admin else ""
                 analysis_id = save_analysis(
@@ -211,6 +227,7 @@ async def analyze(
                     video_id=video_info.get("id", ""),
                     video_title=video_info.get("title", ""),
                     video_duration=video_info.get("duration", 0),
+                    video_published_at=video_info.get("published_at", ""),
                     clips=clips,
                     view_token=view_token,
                 )
