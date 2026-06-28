@@ -17,6 +17,7 @@ from database import (
     init_db, save_analysis, get_analyses, get_analysis,
     update_analysis, delete_analysis, save_viral_clip,
     delete_viral_clip, get_viral_clips, get_analysis_by_video_id,
+    get_analyses_missing_youtube_date, update_analysis_youtube_metadata,
     migrate_all_old_dbs, _use_turso, _turso_debug
 )
 
@@ -123,6 +124,30 @@ def _viral_keys(channel_id: str) -> set[str]:
         for v in get_viral_clips(channel_id, limit=500)
     }
 
+async def _backfill_history_youtube_dates(channel_id: str) -> None:
+    missing = get_analyses_missing_youtube_date(channel_id)
+    if not missing:
+        return
+
+    semaphore = asyncio.Semaphore(4)
+
+    async def fetch(row: dict) -> tuple[int, dict]:
+        url = row.get("video_url", "")
+        if not url and row.get("video_id"):
+            url = f"https://www.youtube.com/watch?v={row['video_id']}"
+        if not url:
+            return row["id"], {}
+        try:
+            async with semaphore:
+                metadata = await run_in_threadpool(get_video_metadata, url)
+            return row["id"], metadata
+        except Exception:
+            return row["id"], {}
+
+    results = await asyncio.gather(*(fetch(row) for row in missing))
+    for analysis_id, metadata in results:
+        update_analysis_youtube_metadata(analysis_id, metadata)
+
 def _render_channel(
     request: Request,
     channel_id: str,
@@ -165,6 +190,8 @@ async def channel_view(
     channel_id: str,
     admin: str = Query(None),
 ):
+    if _is_admin(request, admin):
+        await _backfill_history_youtube_dates(channel_id)
     return _render_channel(request, channel_id, admin=admin)
 
 @app.post("/ch/{channel_id}/analyze", response_class=HTMLResponse)
