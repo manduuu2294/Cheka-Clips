@@ -142,7 +142,7 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
             <img class="hist-item-thumb" src="https://img.youtube.com/vi/{{ a.video_id }}/mqdefault.jpg" alt="" loading="lazy">
             <div>
               <div class="hist-item-title">{{ a.video_title or 'Video sin título' }}</div>
-              <div class="hist-item-date">{% if a.video_published_at %}Publicado &middot; {{ a.video_published_at|history_date }}{% else %}Fecha de publicación pendiente{% endif %}</div>
+              <div class="hist-item-date">Generado &middot; {{ a.created_at|history_date }}</div>
               <div class="hist-item-meta">{{ a.clip_count }} clips</div>
             </div>
           </div>
