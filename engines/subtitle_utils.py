@@ -6,6 +6,7 @@ import tempfile
 import time
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 import yt_dlp
@@ -243,6 +244,28 @@ def ydl_base_opts(workdir: Path | None = None, **overrides) -> dict:
         opts["cookiefile"] = cookiefile
     opts.update(overrides)
     return opts
+
+
+def get_video_metadata(url: str) -> dict:
+    """Return the YouTube fields needed by the UI with a single extraction."""
+    with yt_dlp.YoutubeDL(ydl_base_opts()) as ydl:
+        info = ydl.extract_info(url, download=False)
+
+    published_at = ""
+    upload_date = str(info.get("upload_date") or "")
+    if len(upload_date) == 8 and upload_date.isdigit():
+        published_at = f"{upload_date[:4]}-{upload_date[4:6]}-{upload_date[6:]}"
+    elif info.get("timestamp"):
+        published_at = datetime.fromtimestamp(
+            info["timestamp"], tz=timezone.utc
+        ).date().isoformat()
+
+    return {
+        "id": str(info.get("id") or _get_video_id(url)),
+        "title": str(info.get("title") or ""),
+        "duration": int(info.get("duration") or 0),
+        "published_at": published_at,
+    }
 
 
 def timedtext_headers(workdir: Path | None = None) -> dict:

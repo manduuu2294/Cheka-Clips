@@ -16,19 +16,22 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 .header-accent{color:{{ accent }}}
 .header-desc{font-size:13px;color:rgba(255,255,255,0.25);margin-top:2px}
 
-.layout{display:grid;grid-template-columns:300px 1fr;gap:24px;align-items:start}
+.layout{display:grid;grid-template-columns:360px 1fr;gap:24px;align-items:start}
 @media(max-width:900px){.layout{grid-template-columns:1fr}}
 
 .sidebar{position:sticky;top:24px}
 .sidebar-title{font-size:12px;font-weight:700;color:var(--accent);text-transform:uppercase;letter-spacing:.06em;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(var(--accent-rgb),0.2)}
 
-.hist-item{padding:10px 12px;border-radius:8px;transition:all .15s;margin-bottom:4px;cursor:pointer;text-decoration:none;display:block;border-left:3px solid transparent}
+.hist-item{padding:10px;border-radius:10px;transition:all .15s;margin-bottom:8px;cursor:pointer;text-decoration:none;display:block;border:1px solid rgba(255,255,255,0.07);border-left:3px solid transparent;background:rgba(255,255,255,0.025)}
 .hist-item:hover{background:rgba(var(--accent-rgb),0.06);border-left-color:rgba(var(--accent-rgb),0.35)}
 .hist-item.is-active{background:rgba(var(--accent-rgb),0.12);border-left-color:var(--accent);box-shadow:inset 0 0 0 1px rgba(var(--accent-rgb),0.16)}
 .hist-item.is-active .hist-item-title{color:#fff}
 .hist-item.is-active .hist-item-meta{color:rgba(255,255,255,0.48)}
-.hist-item-title{font-size:13px;font-weight:600;color:rgba(255,255,255,0.8);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;pointer-events:none}
-.hist-item-meta{font-size:11px;color:rgba(255,255,255,0.25);margin-top:2px;pointer-events:none}
+.hist-item-content{display:grid;grid-template-columns:112px minmax(0,1fr);gap:11px;align-items:center;pointer-events:none}
+.hist-item-thumb{display:block;width:112px;aspect-ratio:16/9;object-fit:cover;border-radius:7px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.08)}
+.hist-item-title{font-size:14px;line-height:1.35;font-weight:700;color:rgba(255,255,255,0.9);overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;pointer-events:none}
+.hist-item-date{font-size:12px;color:var(--accent);font-weight:700;margin-top:5px;pointer-events:none}
+.hist-item-meta{font-size:11px;color:rgba(255,255,255,0.35);margin-top:3px;pointer-events:none}
 .hist-item-actions{display:flex;gap:6px;margin-top:6px}
 .hist-empty{font-size:13px;color:rgba(255,255,255,0.15);text-align:center;padding:24px 0}
 
@@ -113,6 +116,7 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
 
 @media(max-width:760px){.clip-header{grid-template-columns:1fr;align-items:start}.clip-actions{width:100%;justify-content:flex-start;flex-wrap:wrap}.clip-time{font-size:12px}}
 @media(max-width:640px){.metrics,.steps{grid-template-columns:1fr}}
+@media(max-width:420px){.hist-item-content{grid-template-columns:96px minmax(0,1fr)}.hist-item-thumb{width:96px}}
 </style>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -134,8 +138,14 @@ body{background:#07070a;color:#fff;font-family:'Inter','Segoe UI',sans-serif;-we
       {% if analyses %}
         {% for a in analyses %}
         <div class="hist-item {% if current_analysis_id and a.id == current_analysis_id %}is-active{% endif %}" onclick="window.location.href='/ch/{{ channel.id }}/analysis/{{ a.id }}{% if admin == '1' %}?admin=1{% endif %}'">
-          <div class="hist-item-title">{{ a.video_title or 'Video' }}</div>
-          <div class="hist-item-meta">{{ a.created_at[:19].replace('T',' ') }} &middot; {{ a.clip_count }} clips</div>
+          <div class="hist-item-content">
+            <img class="hist-item-thumb" src="https://img.youtube.com/vi/{{ a.video_id }}/mqdefault.jpg" alt="" loading="lazy">
+            <div>
+              <div class="hist-item-title">{{ a.video_title or 'Video sin título' }}</div>
+              <div class="hist-item-date">{% if a.video_published_at %}Publicado{% else %}Analizado{% endif %} &middot; {{ (a.video_published_at or a.created_at)|history_date }}</div>
+              <div class="hist-item-meta">{{ a.clip_count }} clips</div>
+            </div>
+          </div>
           {% if admin == '1' %}
           <div class="hist-item-actions">
             <a href="/ch/{{ channel.id }}/analysis/{{ a.id }}/edit?admin=1" class="btn btn-secondary btn-small" onclick="event.stopPropagation()">Editar</a>

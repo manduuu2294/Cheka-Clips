@@ -162,6 +162,7 @@ def init_db():
             video_id TEXT,
             video_title TEXT,
             video_duration INTEGER DEFAULT 0,
+            video_published_at TEXT,
             created_at TEXT NOT NULL,
             clip_count INTEGER DEFAULT 0,
             view_token TEXT,
@@ -172,6 +173,8 @@ def init_db():
         conn.execute("ALTER TABLE analyses ADD COLUMN channel TEXT NOT NULL DEFAULT ''")
     if not column_exists(conn, "analyses", "view_token"):
         conn.execute("ALTER TABLE analyses ADD COLUMN view_token TEXT")
+    if not column_exists(conn, "analyses", "video_published_at"):
+        conn.execute("ALTER TABLE analyses ADD COLUMN video_published_at TEXT")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS viral_clips (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -193,18 +196,20 @@ def init_db():
 
 
 def save_analysis(channel: str, video_url: str, video_id: str, video_title: str,
-                  video_duration: int, clips: list[dict], view_token: str = "") -> int:
+                  video_duration: int, clips: list[dict], view_token: str = "",
+                  video_published_at: str = "") -> int:
     conn = _get_conn()
     cur = conn.execute("""
         INSERT INTO analyses (channel, video_url, video_id, video_title, video_duration,
-                              created_at, clip_count, view_token, clips_json)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                              video_published_at, created_at, clip_count, view_token, clips_json)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
         channel,
         video_url,
         video_id,
         video_title or "",
         video_duration or 0,
+        video_published_at or "",
         datetime.now().isoformat(),
         len(clips),
         view_token or "",
@@ -218,12 +223,17 @@ def get_analyses(channel: str = "") -> list[dict]:
     conn = _get_conn()
     if channel:
         rows = conn.execute(
-            "SELECT id, channel, video_url, video_title, created_at, clip_count FROM analyses WHERE channel = ? OR channel = '' ORDER BY id DESC",
+            """SELECT id, channel, video_url, video_id, video_title, video_published_at,
+                      created_at, clip_count FROM analyses
+               WHERE channel = ? OR channel = ''
+               ORDER BY COALESCE(NULLIF(video_published_at, ''), created_at) DESC, id DESC""",
             (channel,),
         ).fetchall()
     else:
         rows = conn.execute(
-            "SELECT id, channel, video_url, video_title, created_at, clip_count FROM analyses ORDER BY id DESC"
+            """SELECT id, channel, video_url, video_id, video_title, video_published_at,
+                      created_at, clip_count FROM analyses
+               ORDER BY COALESCE(NULLIF(video_published_at, ''), created_at) DESC, id DESC"""
         ).fetchall()
     if not rows:
         return []
