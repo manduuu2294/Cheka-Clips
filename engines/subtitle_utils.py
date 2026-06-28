@@ -191,7 +191,7 @@ def ydl_base_opts(workdir: Path | None = None, **overrides) -> dict:
 
 def get_video_metadata(url: str) -> dict:
     """Return the YouTube fields needed by the UI with a single extraction."""
-    with yt_dlp.YoutubeDL(ydl_base_opts()) as ydl:
+    with yt_dlp.YoutubeDL(ydl_base_opts(socket_timeout=15, retries=1)) as ydl:
         info = ydl.extract_info(url, download=False)
 
     published_at = ""

@@ -163,6 +163,7 @@ def init_db():
             video_title TEXT,
             video_duration INTEGER DEFAULT 0,
             video_published_at TEXT,
+            video_metadata_checked_at TEXT,
             created_at TEXT NOT NULL,
             clip_count INTEGER DEFAULT 0,
             view_token TEXT,
@@ -175,6 +176,8 @@ def init_db():
         conn.execute("ALTER TABLE analyses ADD COLUMN view_token TEXT")
     if not column_exists(conn, "analyses", "video_published_at"):
         conn.execute("ALTER TABLE analyses ADD COLUMN video_published_at TEXT")
+    if not column_exists(conn, "analyses", "video_metadata_checked_at"):
+        conn.execute("ALTER TABLE analyses ADD COLUMN video_metadata_checked_at TEXT")
     conn.execute("""
         CREATE TABLE IF NOT EXISTS viral_clips (
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -226,20 +229,59 @@ def get_analyses(channel: str = "") -> list[dict]:
             """SELECT id, channel, video_url, video_id, video_title, video_published_at,
                       created_at, clip_count FROM analyses
                WHERE channel = ? OR channel = ''
-               ORDER BY COALESCE(NULLIF(video_published_at, ''), created_at) DESC, id DESC""",
+               ORDER BY CASE WHEN NULLIF(video_published_at, '') IS NULL THEN 1 ELSE 0 END,
+                        video_published_at DESC, id DESC""",
             (channel,),
         ).fetchall()
     else:
         rows = conn.execute(
             """SELECT id, channel, video_url, video_id, video_title, video_published_at,
                       created_at, clip_count FROM analyses
-               ORDER BY COALESCE(NULLIF(video_published_at, ''), created_at) DESC, id DESC"""
+               ORDER BY CASE WHEN NULLIF(video_published_at, '') IS NULL THEN 1 ELSE 0 END,
+                        video_published_at DESC, id DESC"""
         ).fetchall()
     if not rows:
         return []
     if hasattr(rows[0], "keys"):
         return [dict(r) for r in rows]
     return _make_rows_list(rows)
+
+
+def get_analyses_missing_youtube_date(channel: str, limit: int = 50) -> list[dict]:
+    conn = _get_conn()
+    rows = conn.execute(
+        """SELECT id, video_url, video_id FROM analyses
+           WHERE (channel = ? OR channel = '')
+             AND NULLIF(video_published_at, '') IS NULL
+             AND (
+                 NULLIF(video_metadata_checked_at, '') IS NULL
+                 OR datetime(video_metadata_checked_at) < datetime('now', '-6 hours')
+             )
+           ORDER BY id DESC LIMIT ?""",
+        (channel, limit),
+    ).fetchall()
+    return _make_rows_list(rows) if rows else []
+
+
+def update_analysis_youtube_metadata(analysis_id: int, metadata: dict) -> None:
+    conn = _get_conn()
+    conn.execute(
+        """UPDATE analyses
+           SET video_id = CASE WHEN ? <> '' THEN ? ELSE video_id END,
+               video_title = CASE WHEN ? <> '' THEN ? ELSE video_title END,
+               video_duration = CASE WHEN ? > 0 THEN ? ELSE video_duration END,
+               video_published_at = CASE WHEN ? <> '' THEN ? ELSE video_published_at END,
+               video_metadata_checked_at = ?
+           WHERE id = ?""",
+        (
+            metadata.get("id", ""), metadata.get("id", ""),
+            metadata.get("title", ""), metadata.get("title", ""),
+            metadata.get("duration", 0), metadata.get("duration", 0),
+            metadata.get("published_at", ""), metadata.get("published_at", ""),
+            datetime.now().isoformat(), analysis_id,
+        ),
+    )
+    conn.commit()
 
 
 def get_analysis(analysis_id: int) -> dict | None:
